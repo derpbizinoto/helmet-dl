@@ -277,13 +277,15 @@ var HDLDownloader = (function () {
     // Traduz os erros mais comuns para algo acionável.
     function friendlyError(msg) {
         var m = String(msg || "");
-        if (/Sign in to confirm|age|login required|log in|rate-limit|private/i.test(m)) {
+        if (T.isNetworkError(m)) return T.NETWORK_MESSAGE;
+        // "age" sozinho também casaria com "webpage"/"message"; aqui é só restrição de idade
+        if (/Sign in to confirm|\bage\b|age[- ]restricted|login required|log in|rate-limit|private/i.test(m)) {
             return m + " — tente escolher um navegador em \"Cookies do navegador\" (onde você está logado).";
         }
         if (/Could not copy .* cookie database|Failed to decrypt|DPAPI/i.test(m)) {
             return "Não deu para ler os cookies do navegador. Feche o navegador e tente de novo, ou use o Firefox. (" + m + ")";
         }
-        if (/Unsupported URL/i.test(m)) return "Esse link não é suportado pelo yt-dlp.";
+        if (/Unsupported URL/i.test(m)) return "Este site não é suportado (o yt-dlp não sabe baixar desse endereço).";
         if (/ffmpeg|ffprobe/i.test(m) && /not found|not installed/i.test(m)) return "FFmpeg não encontrado — instale em Ferramentas.";
         if (/Requested format is not available/i.test(m)) return "O formato pedido não existe para esse vídeo. Tente outra qualidade.";
         return m;

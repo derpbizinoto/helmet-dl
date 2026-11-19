@@ -75,7 +75,13 @@ var HDLBridge = (function () {
         return ensureHost().then(function () { return evalRaw(script); }).then(function (raw) {
             var parsed;
             try { parsed = JSON.parse(raw); }
-            catch (e) { throw new Error("Resposta inválida do ExtendScript: " + raw); }
+            catch (e) {
+                log("Resposta inválida do ExtendScript (" + name + "): " + raw);
+                // "EvalScript error" = a função não existe no Premiere: o host/index.jsx não carregou
+                throw new Error(/EvalScript error/i.test(raw)
+                    ? "A parte da extensão que roda dentro do Premiere não carregou. Feche o Premiere e reinstale a extensão (instalar.bat)."
+                    : "O Premiere devolveu uma resposta inesperada. Veja os detalhes no Log.");
+            }
             if (!parsed || !parsed.ok) throw new Error((parsed && parsed.error) || "Erro no ExtendScript.");
             return parsed.data;
         });

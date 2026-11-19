@@ -389,6 +389,14 @@ var HDLTools = (function () {
         });
     }
 
+    // Reconhece falha de rede nas mensagens do Node, do PowerShell (em inglês ou
+    // português) e do yt-dlp (Python), para mostrar um aviso claro em vez do erro técnico.
+    var NETWORK_MESSAGE = "Sem conexão com a internet (ou o site não respondeu). Confira a conexão e tente de novo.";
+
+    function isNetworkError(msg) {
+        return /ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH|getaddrinfo|Errno 1100[0-9]|Errno -?[23]\b|WinError 100(5[01]|6[015])|Failed to establish a new connection|Unable to connect to proxy|Nenhuma conexão pôde ser feita|Name or service not known|Temporary failure in name resolution|Failed to resolve|Network is unreachable|timed out|Connection (refused|reset|aborted)|remote name could not be resolved|nome remoto não pôde ser resolvido|Unable to connect to the remote server|Impossível conectar-se ao servidor remoto|operation has timed out|tempo limite da operação|Tempo esgotado conectando|Sem conexão com|parou de responder|conexão caiu/i.test(String(msg || ""));
+    }
+
     // onProgress(baixado, total). baixado = -1 indica o modo alternativo (sem progresso).
     function downloadFile(url, dest, onProgress) {
         if (!isAllowedUrl(url)) return refuseUrl(url);
@@ -650,6 +658,8 @@ var HDLTools = (function () {
         reveal: reveal,
         readClipboardSystem: readClipboardSystem,
         ensureDir: ensureDir,
+        isNetworkError: isNetworkError,
+        NETWORK_MESSAGE: NETWORK_MESSAGE,
         // expostos para os testes automáticos
         _isAllowedUrl: isAllowedUrl,
         _expectedHash: expectedHash,

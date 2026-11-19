@@ -73,7 +73,11 @@ var HDLToolsUI = (function () {
                 U.appendLog(label(name) + " pronto: " + res.version);
                 return res;
             }, function (e) {
+                // o detalhe técnico fica no log; na tela, uma frase clara
                 U.appendLog("Falha ao instalar " + label(name) + ": " + e.message);
+                if (HDLTools.isNetworkError(e.message)) {
+                    throw new Error("Não deu para instalar o " + label(name) + ". " + HDLTools.NETWORK_MESSAGE);
+                }
                 throw e;
             });
         };
