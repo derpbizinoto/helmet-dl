@@ -15,6 +15,7 @@ var HDLTools = (function () {
     var https = require("https");
     var dns = require("dns");
     var cp = require("child_process");
+    var crypto = require("crypto");
 
     var isWin = process.platform === "win32";
     var isMac = process.platform === "darwin";
@@ -25,18 +26,7 @@ var HDLTools = (function () {
         : path.join(os.homedir(), "Library", "Application Support", "Helmet DL");
     var binDir = path.join(dataDir, "bin");
 
-    var URLS = {
-        ytdlp: isWin
-            ? "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
-            : "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos",
-        // builds recomendados pelo próprio yt-dlp (com correções para o yt-dlp)
-        ffmpeg: "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
-        deno: isWin
-            ? "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip"
-            : (process.arch === "arm64"
-                ? "https://github.com/denoland/deno/releases/latest/download/deno-aarch64-apple-darwin.zip"
-                : "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-apple-darwin.zip")
-    };
+    var TOOLS = HDL_CONFIG.TOOLS;
 
     // --- utilidades de arquivo ----------------------------------------------
 
@@ -179,6 +169,23 @@ var HDLTools = (function () {
 
     // --- download HTTP com redirecionamentos e progresso ---------------------
 
+    // Só HTTPS e só servidores do GitHub (as releases, a API e o CDN de arquivos dele).
+    // Vale para o endereço inicial e para cada redirecionamento.
+    function isAllowedUrl(url) {
+        try {
+            var u = new URL(url);
+            return u.protocol === "https:" &&
+                (u.hostname === "github.com" || u.hostname === "api.github.com" ||
+                 /\.githubusercontent\.com$/.test(u.hostname));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function refuseUrl(url) {
+        return Promise.reject(new Error("Download recusado: endereço fora do GitHub (" + url + ")."));
+    }
+
     // Os arquivos do GitHub ficam num CDN com vários IPs, e em algumas redes parte
     // deles não responde. Por isso cada IP é tentado com um tempo curto de conexão,
     // em vez de esperar o timeout longo do sistema no primeiro.
@@ -222,6 +229,7 @@ var HDLTools = (function () {
     function openGet(url, headers, redirects) {
         redirects = redirects || 0;
         if (redirects > 8) return Promise.reject(new Error("Redirecionamentos demais em " + url));
+        if (!isAllowedUrl(url)) return refuseUrl(url);
         var host = new URL(url).hostname;
         return lookupAll(host).then(function (addrs) {
             if (!addrs.length) addrs = [null];
@@ -316,6 +324,7 @@ var HDLTools = (function () {
 
     // onProgress(baixado, total). baixado = -1 indica o modo alternativo (sem progresso).
     function downloadFile(url, dest, onProgress) {
+        if (!isAllowedUrl(url)) return refuseUrl(url);
         return downloadFileNode(url, dest, onProgress).catch(function (e) {
             var network = e.phase === "connect" || /ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENOTFOUND|caiu|parou|incompleto/i.test(e.message);
             if (!isWin || !network) throw e;
@@ -324,6 +333,68 @@ var HDLTools = (function () {
                 throw new Error(e.message + " / " + e2.message);
             });
         });
+    }
+
+    // --- conferência do SHA-256 ---------------------------------------------------
+
+    function sha256File(file) {
+        return new Promise(function (resolve, reject) {
+            var hash = crypto.createHash("sha256");
+            var stream = fs.createReadStream(file);
+            stream.on("error", reject);
+            stream.on("data", function (d) { hash.update(d); });
+            stream.on("end", function () { resolve(hash.digest("hex")); });
+        });
+    }
+
+    // Lê o arquivo de SHA-256 publicado na release.
+    //  - lista ("<hash>  <arquivo>" por linha): procura a linha do arquivo;
+    //  - arquivo de um pacote só (singleHash, caso do Deno): aceita o único hash
+    //    de 64 caracteres que houver no texto (o do Windows vem no formato do
+    //    Get-FileHash: "Hash : ABC…").
+    function expectedHash(text, fileName, singleHash) {
+        var lines = String(text || "").split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            var m = lines[i].trim().match(/^([0-9a-fA-F]{64})\s+\*?(.+)$/);
+            if (m && m[2].trim() === fileName) return m[1].toLowerCase();
+        }
+        if (singleHash) {
+            var all = String(text || "").match(/\b[0-9a-fA-F]{64}\b/g) || [];
+            if (all.length === 1) return all[0].toLowerCase();
+        }
+        return null;
+    }
+
+    // Baixa um pacote oficial e só o entrega (em `dest`) se o SHA-256 conferir.
+    // Enquanto não confere, o arquivo fica com outro nome, então uma ferramenta que
+    // já funcionava nunca é trocada por um arquivo ruim.
+    function downloadVerified(tool, dest, onProgress) {
+        var spec = TOOLS[tool];
+        var staging = dest + ".verificando";
+        var sums = dest + ".sha256";
+        var expected = null;
+        var cleanup = function () { rmrf(staging); rmrf(sums); };
+        return downloadFile(spec.sumsUrl, sums)
+            .then(function () {
+                expected = expectedHash(fs.readFileSync(sums, "utf8"), spec.asset, spec.singleHash);
+                if (!expected) {
+                    throw new Error("Não encontrei a impressão digital (SHA-256) de " + spec.asset +
+                        " na página oficial. Por segurança, a instalação foi cancelada. Tente de novo mais tarde.");
+                }
+                return downloadFile(spec.url, staging, onProgress);
+            })
+            .then(function () { return sha256File(staging); })
+            .then(function (actual) {
+                if (actual.toLowerCase() !== expected) {
+                    throw new Error("O arquivo baixado (" + spec.asset + ") não confere com a impressão digital " +
+                        "(SHA-256) publicada e foi apagado por segurança. Isso pode acontecer se uma versão nova " +
+                        "saiu durante o download — tente de novo em alguns minutos.");
+                }
+                finishTmp(staging, dest);
+                rmrf(sums);
+                return dest;
+            })
+            .catch(function (e) { cleanup(); throw e; });
     }
 
     function extractZip(zip, destDir) {
@@ -419,7 +490,7 @@ var HDLTools = (function () {
     function installYtdlp(onProgress) {
         ensureDir(binDir);
         var dest = path.join(binDir, "yt-dlp" + EXE);
-        return downloadFile(URLS.ytdlp, dest, onProgress).then(function () {
+        return downloadVerified("ytdlp", dest, onProgress).then(function () {
             if (!isWin) fs.chmodSync(dest, 0o755);
             return detectYtdlp();
         });
@@ -433,7 +504,7 @@ var HDLTools = (function () {
         var zip = path.join(dataDir, "ffmpeg.zip");
         var tmp = path.join(dataDir, "ffmpeg-tmp");
         rmrf(tmp);
-        return downloadFile(URLS.ffmpeg, zip, onProgress)
+        return downloadVerified("ffmpeg", zip, onProgress)
             .then(function () { return extractZip(zip, tmp); })
             .then(function () {
                 ["ffmpeg.exe", "ffprobe.exe"].forEach(function (name) {
@@ -451,7 +522,7 @@ var HDLTools = (function () {
         var zip = path.join(dataDir, "deno.zip");
         var tmp = path.join(dataDir, "deno-tmp");
         rmrf(tmp);
-        return downloadFile(URLS.deno, zip, onProgress)
+        return downloadVerified("deno", zip, onProgress)
             .then(function () { return extractZip(zip, tmp); })
             .then(function () {
                 var found = findFileRecursive(tmp, "deno" + EXE, 2);
@@ -484,7 +555,7 @@ var HDLTools = (function () {
 
     // Versão mais recente publicada (para a atualização automática diária).
     function latestYtdlpVersion() {
-        return openGet("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
+        return openGet(HDL_CONFIG.YTDLP_LATEST_API,
             { "User-Agent": "Helmet-DL", "Accept": "application/vnd.github+json" }).then(function (res) {
             return new Promise(function (resolve) {
                 var body = "";
@@ -518,6 +589,9 @@ var HDLTools = (function () {
         killTree: killTree,
         rmrf: rmrf,
         ensureDir: ensureDir,
-        isFile: isFile
+        isFile: isFile,
+        // expostos para os testes automáticos
+        _isAllowedUrl: isAllowedUrl,
+        _expectedHash: expectedHash
     };
 })();
