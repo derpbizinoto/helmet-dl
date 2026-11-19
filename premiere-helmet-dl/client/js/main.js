@@ -414,13 +414,31 @@ var previewUrl = "";
 var previewInfo = null;
 var infoCache = {};
 
+// Devolve o link pronto para o yt-dlp, ou null se não for um link http/https.
+// "youtu.be/abc" (sem https://) ganha o https:// na frente. Recusa file:, javascript:,
+// data: etc. e qualquer texto começando com "-" (que poderia virar opção do yt-dlp —
+// o "--" antes da URL já impede isso; aqui é a segunda barreira).
+function normalizeUrl(t) {
+    t = String(t || "");
+    if (!t || t.charAt(0) === "-") return null;
+    var candidate = t;
+    if (!/^https?:\/\//i.test(t)) {
+        if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return null;             // outro esquema (file:, javascript:…)
+        if (!/^[\w-]+(\.[\w-]+)+(\/|$)/.test(t)) return null;        // não parece "site.com/…"
+        candidate = "https://" + t;
+    }
+    var u;
+    try { u = new URL(candidate); } catch (e) { return null; }
+    if ((u.protocol !== "http:" && u.protocol !== "https:") || !u.hostname) return null;
+    return candidate;
+}
+
 function parseUrls(text) {
     var valid = [], invalid = [];
     String(text || "").split(/\s+/).forEach(function (t) {
         if (!t) return;
-        if (/^https?:\/\//i.test(t)) valid.push(t);
-        else if (/^[\w-]+(\.[\w-]+)+(\/|$)/.test(t)) valid.push("https://" + t);
-        else invalid.push(t);
+        var url = normalizeUrl(t);
+        if (url) valid.push(url); else invalid.push(t);
     });
     return { valid: valid, invalid: invalid };
 }
@@ -493,7 +511,10 @@ function renderPreview(info) {
     previewInfo = info;
     els.preview.style.display = "";
     els.preview.className = "preview";
-    if (info.thumbnail) els.previewThumb.src = info.thumbnail; else els.previewThumb.removeAttribute("src");
+    // Só miniatura http(s): um endereço file://servidor/… faria o Windows se conectar
+    // a esse servidor e enviar a identificação de login do usuário.
+    if (/^https?:\/\//i.test(info.thumbnail || "")) els.previewThumb.src = info.thumbnail;
+    else els.previewThumb.removeAttribute("src");
     els.previewDuration.textContent = info.isLive ? "AO VIVO" : fmtDuration(info.duration);
     els.previewTitle.textContent = info.title;
     var meta = [];
@@ -797,18 +818,37 @@ function removeJob(job) {
 
 // --- renderização da fila ---------------------------------------------------------------------
 
+// Montagem dos elementos sem innerHTML: nenhum texto vira HTML por acidente.
+var SVG_NS = "http://www.w3.org/2000/svg";
+
+function el(tag, className, children) {
+    var e = document.createElement(tag);
+    if (className) e.className = className;
+    (children || []).forEach(function (c) { e.appendChild(c); });
+    return e;
+}
+
 function iconBtn(action, icon, title) {
-    return '<button class="icon-btn sm" data-action="' + action + '" title="' + title + '"><svg class="icon"><use href="#' + icon + '"/></svg></button>';
+    var svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", "icon");
+    var use = document.createElementNS(SVG_NS, "use");
+    use.setAttribute("href", "#" + icon);
+    svg.appendChild(use);
+    var b = el("button", "icon-btn sm", [svg]);
+    b.dataset.action = action;
+    b.title = title;
+    return b;
 }
 
 function renderJob(job) {
     if (!job.el) {
         job.el = document.createElement("li");
         job.el.dataset.id = job.id;
-        job.el.innerHTML =
-            '<div class="q-head"><span class="q-title"></span><div class="q-actions"></div></div>' +
-            '<div class="progress" style="display:none"><div class="progress-bar"></div></div>' +
-            '<div class="q-line"><span class="q-state"></span><span class="q-nums"></span></div>';
+        var progress = el("div", "progress", [el("div", "progress-bar")]);
+        progress.style.display = "none";
+        job.el.appendChild(el("div", "q-head", [el("span", "q-title"), el("div", "q-actions")]));
+        job.el.appendChild(progress);
+        job.el.appendChild(el("div", "q-line", [el("span", "q-state"), el("span", "q-nums")]));
         els.queue.insertBefore(job.el, els.queue.firstChild);
     }
     var active = job.state === "running";
@@ -820,13 +860,14 @@ function renderJob(job) {
     title.textContent = job.title;
     title.title = job.url;
 
-    var actions = "";
-    if (job.state === "queued" || job.state === "running") actions = iconBtn("cancel", "i-x", "Cancelar");
-    else if (job.state === "done" || job.state === "warn") actions = iconBtn("reveal", "i-folder", "Mostrar na pasta") + iconBtn("remove", "i-x", "Tirar da lista");
-    else actions = iconBtn("retry", "i-retry", "Tentar de novo") + iconBtn("remove", "i-x", "Tirar da lista");
     var actionsEl = job.el.querySelector(".q-actions");
     if (actionsEl.dataset.key !== job.state) {
-        actionsEl.innerHTML = actions;
+        var actions;
+        if (job.state === "queued" || job.state === "running") actions = [iconBtn("cancel", "i-x", "Cancelar")];
+        else if (job.state === "done" || job.state === "warn") actions = [iconBtn("reveal", "i-folder", "Mostrar na pasta"), iconBtn("remove", "i-x", "Tirar da lista")];
+        else actions = [iconBtn("retry", "i-retry", "Tentar de novo"), iconBtn("remove", "i-x", "Tirar da lista")];
+        while (actionsEl.firstChild) actionsEl.removeChild(actionsEl.firstChild);
+        actions.forEach(function (b) { actionsEl.appendChild(b); });
         actionsEl.dataset.key = job.state;
     }
 
