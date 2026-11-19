@@ -68,7 +68,7 @@ var HDLDownloader = (function () {
         if (!ff) return Promise.resolve(null);
         function works(enc) {
             return T.runCapture(ff.cmd, ["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=black:s=256x256:d=0.2",
-                "-c:v", enc, "-f", "null", "-"], 20000).then(function (r) { return r.code === 0; });
+                "-c:v", enc, "-f", "null", "-"], HDL_CONFIG.TIMEOUT.gpuTest).then(function (r) { return r.code === 0; });
         }
         gpuPromise = ["nvenc", "amf", "qsv"].reduce(function (p, vendor) {
             return p.then(function (found) {
@@ -121,6 +121,18 @@ var HDLDownloader = (function () {
     function num(v) {
         var n = parseFloat(v);
         return isNaN(n) ? null : n;
+    }
+
+    // Erro de "cancelado pelo usuário" (o painel o reconhece por e.canceled).
+    function canceledError() {
+        var e = new Error("Cancelado");
+        e.canceled = true;
+        return e;
+    }
+
+    // "> yt-dlp --opcao "valor com espaço" …" para o card Log.
+    function commandForLog(name, args) {
+        return "> " + name + " " + args.map(function (x) { return /\s/.test(x) ? '"' + x + '"' : x; }).join(" ");
     }
 
     // --- nomes e caminhos de arquivo ---------------------------------------------
@@ -313,9 +325,9 @@ var HDLDownloader = (function () {
 
         var printFile = path.join(os.tmpdir(), "helmet-dl-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".txt");
 
-        var nameTpl = "%(title).120B [%(id)s]";
+        var nameTpl = HDL_CONFIG.NAME_TEMPLATE;
         var args = y.base.concat(baseArgs(opts), [
-            "--newline", "--no-mtime", "--concurrent-fragments", "4",
+            "--newline", "--no-mtime", "--concurrent-fragments", HDL_CONFIG.CONCURRENT_FRAGMENTS,
             "--progress-template", "download:HDLP|%(progress.status)s|%(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s|%(progress.fragment_index)s|%(progress.fragment_count)s",
             "--print-to-file", "after_move:filepath", printFile,
             // o yt-dlp limpa o título (barras, caracteres inválidos do Windows) para
@@ -338,7 +350,7 @@ var HDLDownloader = (function () {
         args = args.concat(formatArgs(opts));
         args.push("--", url);
 
-        cb.onLog("> yt-dlp " + args.slice(y.base.length).map(function (x) { return /\s/.test(x) ? '"' + x + '"' : x; }).join(" "));
+        cb.onLog(commandForLog("yt-dlp", args.slice(y.base.length)));
 
         var child = T.spawnTool(y.cmd, args);
         var canceled = false;
@@ -363,8 +375,9 @@ var HDLDownloader = (function () {
                 if (pct !== null) nums.push(Math.floor(pct * 100) + "%");
                 if (speed) nums.push(fmtBytes(speed) + "/s");
                 if (eta) nums.push(fmtEta(eta));
-                var label = opts.content === "audio" ? "Baixando áudio" : (part > 1 ? "Baixando áudio" : "Baixando vídeo");
-                if (opts.content === "video") label = "Baixando vídeo";
+                // Em "Vídeo + áudio" o yt-dlp baixa o vídeo e depois o áudio (2ª parte).
+                var audioNow = opts.content === "audio" || (opts.content === "both" && part > 1);
+                var label = audioNow ? "Baixando áudio" : "Baixando vídeo";
                 if (item) label += " · " + item;
                 phase(label, pct, nums.join(" · "));
                 return;
@@ -409,7 +422,7 @@ var HDLDownloader = (function () {
                     return false;
                 });
 
-                if (canceled) { reject(Object.assign(new Error("Cancelado"), { canceled: true })); return; }
+                if (canceled) { reject(canceledError()); return; }
                 if (code !== 0 && !files.length) {
                     reject(new Error(friendlyError(cleanError(errLines.join("\n"))) || ("yt-dlp saiu com código " + code)));
                     return;
@@ -434,7 +447,7 @@ var HDLDownloader = (function () {
     function probe(file) {
         var ff = T.state.ffmpeg;
         if (!ff || !ff.probe) return Promise.resolve(null);
-        return T.runCapture(ff.probe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", file], 30000)
+        return T.runCapture(ff.probe, ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", file], HDL_CONFIG.TIMEOUT.probe)
             .then(function (r) {
                 if (r.code !== 0) return null;
                 var j;
@@ -488,7 +501,7 @@ var HDLDownloader = (function () {
         if (!ff) throw new Error("FFmpeg não encontrado.");
         // -n: nunca grava por cima de um arquivo existente (os nomes de saída já são únicos)
         var full = ["-hide_banner", "-n", "-nostats", "-progress", "pipe:1"].concat(args);
-        onLog("> ffmpeg " + full.map(function (x) { return /\s/.test(x) ? '"' + x + '"' : x; }).join(" "));
+        onLog(commandForLog("ffmpeg", full));
         var child = T.spawnTool(ff.cmd, full);
         var canceled = false;
         var tail = [];
@@ -503,7 +516,7 @@ var HDLDownloader = (function () {
         var promise = new Promise(function (resolve, reject) {
             child.on("error", reject);
             child.on("close", function (code) {
-                if (canceled) { reject(Object.assign(new Error("Cancelado"), { canceled: true })); return; }
+                if (canceled) { reject(canceledError()); return; }
                 if (code !== 0) {
                     tail.forEach(onLog);
                     reject(new Error("O FFmpeg falhou (código " + code + "): " + (tail[tail.length - 1] || "")));
@@ -579,6 +592,10 @@ var HDLDownloader = (function () {
         friendlyError: friendlyError,
         isInside: isInside,
         safeName: safeName,
-        uniquePath: uniquePath
+        uniquePath: uniquePath,
+        canceledError: canceledError,
+        // expostos para os testes automáticos
+        _formatArgs: formatArgs,
+        _cleanError: cleanError
     };
 })();

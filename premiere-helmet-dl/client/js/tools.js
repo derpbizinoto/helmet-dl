@@ -18,15 +18,16 @@ var HDLTools = (function () {
     var crypto = require("crypto");
 
     var isWin = process.platform === "win32";
-    var isMac = process.platform === "darwin";
     var EXE = isWin ? ".exe" : "";
 
+    // (o Helmet Cutter também procura o FFmpeg nesta pasta — não mudar o caminho)
     var dataDir = isWin
         ? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Helmet DL")
         : path.join(os.homedir(), "Library", "Application Support", "Helmet DL");
     var binDir = path.join(dataDir, "bin");
 
     var TOOLS = HDL_CONFIG.TOOLS;
+    var TIMEOUT = HDL_CONFIG.TIMEOUT;
 
     // Programas do sistema pelo caminho completo. Chamados só pelo nome, o Windows
     // procuraria primeiro na pasta atual (aqui, o %TEMP%), onde qualquer programa
@@ -58,7 +59,7 @@ var HDLTools = (function () {
         try {
             if (fs.rmSync) fs.rmSync(p, { recursive: true, force: true });
             else if (fs.existsSync(p)) fs.rmdirSync(p, { recursive: true });
-        } catch (e) { /* ignora */ }
+        } catch (e) { HDLLog.debug("não consegui apagar", p, e.message); }
     }
 
     function findFileRecursive(dir, name, depth) {
@@ -76,7 +77,7 @@ var HDLTools = (function () {
                     var hit = findFileRecursive(sub, name, depth - 1);
                     if (hit) return hit;
                 }
-            } catch (e) { /* ignora */ }
+            } catch (e) { /* ignora entradas ilegíveis */ }
         }
         return null;
     }
@@ -162,7 +163,7 @@ var HDLTools = (function () {
                 killTree(child);
                 done = true;
                 resolve({ code: -2, stdout: out, stderr: err + "\n(tempo esgotado)" });
-            }, timeoutMs || 30000);
+            }, timeoutMs || TIMEOUT.toolVersion);
             child.stdout.setEncoding("utf8");
             child.stderr.setEncoding("utf8");
             child.stdout.on("data", function (d) { out += d; });
@@ -223,9 +224,9 @@ var HDLTools = (function () {
     function readClipboardSystem() {
         if (isWin) {
             return runPowerShell("try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}; Get-Clipboard -Raw",
-                null, 10000, ["-STA"]);
+                null, TIMEOUT.clipboard, ["-STA"]);
         }
-        return runCapture(SYS.pbpaste, [], 10000);
+        return runCapture(SYS.pbpaste, [], TIMEOUT.clipboard);
     }
 
     function firstLine(s) {
@@ -254,7 +255,7 @@ var HDLTools = (function () {
     // Os arquivos do GitHub ficam num CDN com vários IPs, e em algumas redes parte
     // deles não responde. Por isso cada IP é tentado com um tempo curto de conexão,
     // em vez de esperar o timeout longo do sistema no primeiro.
-    var CONNECT_TIMEOUT = 8000;
+
     var HTTP_HEADERS = { "User-Agent": "Helmet-DL" };
 
     function lookupAll(host) {
@@ -281,7 +282,7 @@ var HDLTools = (function () {
             });
             var timer = setTimeout(function () {
                 if (!connected) req.destroy(new Error("Tempo esgotado conectando em " + (addr ? addr.address : url)));
-            }, CONNECT_TIMEOUT);
+            }, TIMEOUT.connect);
             req.on("error", function (e) {
                 clearTimeout(timer);
                 if (!connected) e.phase = "connect";
@@ -345,12 +346,12 @@ var HDLTools = (function () {
                 function fail(e) {
                     if (failed) return;
                     failed = true;
-                    try { file.destroy(); } catch (x) { /* ignora */ }
+                    try { file.destroy(); } catch (x) { /* já fechado */ }
                     setTimeout(function () { rmrf(tmp); }, 200);
                     reject(e);
                 }
                 if (res.socket) {
-                    res.socket.setTimeout(60000, function () { res.destroy(new Error("O download parou de responder.")); });
+                    res.socket.setTimeout(TIMEOUT.stalled, function () { res.destroy(new Error("O download parou de responder.")); });
                 }
                 res.on("data", function (chunk) {
                     got += chunk.length;
@@ -379,7 +380,7 @@ var HDLTools = (function () {
         var script = "$ProgressPreference='SilentlyContinue'; " +
             "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; " +
             "Invoke-WebRequest -UseBasicParsing -Uri $env:HDL_URL -OutFile $env:HDL_OUT";
-        return runPowerShell(script, { HDL_URL: url, HDL_OUT: tmp }, 30 * 60000).then(function (r) {
+        return runPowerShell(script, { HDL_URL: url, HDL_OUT: tmp }, TIMEOUT.psDownload).then(function (r) {
             if (r.code !== 0 || !isFile(tmp)) {
                 rmrf(tmp);
                 throw new Error("Não foi possível baixar " + url + " (" + (firstLine(r.stderr) || "PowerShell falhou") + ")");
@@ -466,15 +467,15 @@ var HDLTools = (function () {
     function extractZip(zip, destDir) {
         ensureDir(destDir);
         if (!isWin) {
-            return runCapture(SYS.ditto, ["-x", "-k", zip, destDir], 300000).then(check);
+            return runCapture(SYS.ditto, ["-x", "-k", zip, destDir], TIMEOUT.extract).then(check);
         }
         var viaPowerShell = function () {
             return runPowerShell("Expand-Archive -LiteralPath $env:HDL_ZIP -DestinationPath $env:HDL_DEST -Force",
-                { HDL_ZIP: zip, HDL_DEST: destDir }, 300000).then(check);
+                { HDL_ZIP: zip, HDL_DEST: destDir }, TIMEOUT.extract).then(check);
         };
         // tar.exe vem no Windows 10/11 e é bem mais rápido que o Expand-Archive
         if (!isFile(SYS.tar)) return viaPowerShell();
-        return runCapture(SYS.tar, ["-xf", zip, "-C", destDir], 300000).then(function (r) {
+        return runCapture(SYS.tar, ["-xf", zip, "-C", destDir], TIMEOUT.extract).then(function (r) {
             return r.code === 0 ? r : viaPowerShell();
         });
         function check(r) {
@@ -501,7 +502,7 @@ var HDLTools = (function () {
         return candidates.reduce(function (p, c) {
             return p.then(function (found) {
                 if (found) return found;
-                return runCapture(c.cmd, c.base.concat(["--version"]), 60000).then(function (r) {
+                return runCapture(c.cmd, c.base.concat(["--version"]), TIMEOUT.ytdlpVersion).then(function (r) {
                     var v = firstLine(r.stdout);
                     if (r.code === 0 && /^\d{4}\.\d{2}\.\d{2}/.test(v)) {
                         c.version = v;
@@ -516,35 +517,37 @@ var HDLTools = (function () {
         });
     }
 
+    // O da extensão (binDir) ou, se não houver, o do sistema. Roda `versionArgs` e
+    // lê a versão da 1ª linha com `versionRe`. Resolve com { cmd, version, source } ou null.
+    function detectSimple(name, versionArgs, versionRe) {
+        var managed = path.join(binDir, name + EXE);
+        var cmd = isFile(managed) ? managed : which(name);
+        if (!cmd) return Promise.resolve(null);
+        return runCapture(cmd, versionArgs, TIMEOUT.toolVersion).then(function (r) {
+            if (r.code !== 0) return null;
+            var line = firstLine(r.stdout);
+            var m = line.match(versionRe);
+            return { cmd: cmd, version: m ? m[1] : line, source: cmd === managed ? "managed" : "path" };
+        });
+    }
+
     function detectFfmpeg() {
-        var managed = path.join(binDir, "ffmpeg" + EXE);
-        var ff = isFile(managed) ? managed : which("ffmpeg");
-        if (!ff) { state.ffmpeg = null; return Promise.resolve(null); }
-        var probe = path.join(path.dirname(ff), "ffprobe" + EXE);
-        return runCapture(ff, ["-hide_banner", "-version"], 20000).then(function (r) {
-            if (r.code !== 0) { state.ffmpeg = null; return null; }
-            var line = firstLine(r.stdout); // "ffmpeg version 7.1-full_build-www.gyan.dev ..."
-            var m = line.match(/ffmpeg version\s+(\S+)/i);
-            state.ffmpeg = {
-                cmd: ff,
-                probe: isFile(probe) ? probe : null,
-                dir: path.dirname(ff),
-                version: m ? m[1] : line,
-                source: ff === managed ? "managed" : "path"
-            };
-            return state.ffmpeg;
+        // 1ª linha: "ffmpeg version 7.1-full_build-www.gyan.dev ..."
+        return detectSimple("ffmpeg", ["-hide_banner", "-version"], /ffmpeg version\s+(\S+)/i).then(function (t) {
+            if (t) {
+                var probe = path.join(path.dirname(t.cmd), "ffprobe" + EXE);
+                t.probe = isFile(probe) ? probe : null;
+                t.dir = path.dirname(t.cmd);
+            }
+            state.ffmpeg = t;
+            return t;
         });
     }
 
     function detectDeno() {
-        var managed = path.join(binDir, "deno" + EXE);
-        var d = isFile(managed) ? managed : which("deno");
-        if (!d) { state.deno = null; return Promise.resolve(null); }
-        return runCapture(d, ["--version"], 20000).then(function (r) {
-            if (r.code !== 0) { state.deno = null; return null; }
-            var m = firstLine(r.stdout).match(/deno\s+(\S+)/i);
-            state.deno = { cmd: d, version: m ? m[1] : firstLine(r.stdout), source: d === managed ? "managed" : "path" };
-            return state.deno;
+        return detectSimple("deno", ["--version"], /deno\s+(\S+)/i).then(function (t) {
+            state.deno = t;
+            return t;
         });
     }
 
@@ -563,43 +566,37 @@ var HDLTools = (function () {
         });
     }
 
+    // Baixa o .zip oficial (com SHA-256 conferido), extrai numa pasta temporária e
+    // copia os executáveis `exeNames` (procurados até `depth` subpastas) para binDir.
+    function installZipTool(tool, exeNames, depth, onProgress) {
+        ensureDir(binDir);
+        var zip = path.join(dataDir, tool + ".zip");
+        var tmp = path.join(dataDir, tool + "-tmp");
+        var cleanup = function () { rmrf(tmp); rmrf(zip); };
+        rmrf(tmp);
+        return downloadVerified(tool, zip, onProgress)
+            .then(function () { return extractZip(zip, tmp); })
+            .then(function () {
+                exeNames.forEach(function (name) {
+                    var found = findFileRecursive(tmp, name, depth);
+                    if (!found) throw new Error(name + " não encontrado no pacote baixado");
+                    var dest = path.join(binDir, name);
+                    fs.copyFileSync(found, dest);
+                    if (!isWin) fs.chmodSync(dest, 0o755);
+                });
+                cleanup();
+            }, function (e) { cleanup(); throw e; });
+    }
+
     function installFfmpeg(onProgress) {
         if (!isWin) {
             return Promise.reject(new Error("No macOS, instale o FFmpeg pelo Homebrew: brew install ffmpeg"));
         }
-        ensureDir(binDir);
-        var zip = path.join(dataDir, "ffmpeg.zip");
-        var tmp = path.join(dataDir, "ffmpeg-tmp");
-        rmrf(tmp);
-        return downloadVerified("ffmpeg", zip, onProgress)
-            .then(function () { return extractZip(zip, tmp); })
-            .then(function () {
-                ["ffmpeg.exe", "ffprobe.exe"].forEach(function (name) {
-                    var found = findFileRecursive(tmp, name, 4);
-                    if (!found) throw new Error(name + " não encontrado no pacote baixado");
-                    fs.copyFileSync(found, path.join(binDir, name));
-                });
-                rmrf(tmp); rmrf(zip);
-                return detectFfmpeg();
-            }, function (e) { rmrf(tmp); rmrf(zip); throw e; });
+        return installZipTool("ffmpeg", ["ffmpeg.exe", "ffprobe.exe"], 4, onProgress).then(detectFfmpeg);
     }
 
     function installDeno(onProgress) {
-        ensureDir(binDir);
-        var zip = path.join(dataDir, "deno.zip");
-        var tmp = path.join(dataDir, "deno-tmp");
-        rmrf(tmp);
-        return downloadVerified("deno", zip, onProgress)
-            .then(function () { return extractZip(zip, tmp); })
-            .then(function () {
-                var found = findFileRecursive(tmp, "deno" + EXE, 2);
-                if (!found) throw new Error("deno não encontrado no pacote baixado");
-                var dest = path.join(binDir, "deno" + EXE);
-                fs.copyFileSync(found, dest);
-                if (!isWin) fs.chmodSync(dest, 0o755);
-                rmrf(tmp); rmrf(zip);
-                return detectDeno();
-            }, function (e) { rmrf(tmp); rmrf(zip); throw e; });
+        return installZipTool("deno", ["deno" + EXE], 2, onProgress).then(detectDeno);
     }
 
     // Atualiza o yt-dlp. A versão gerenciada pela extensão é simplesmente baixada de
@@ -608,13 +605,13 @@ var HDLTools = (function () {
         var y = state.ytdlp;
         if (!y || y.source === "managed") return installYtdlp(onProgress);
         if (y.source === "python") {
-            return runCapture(y.cmd, y.base.slice(0, -2).concat(["-m", "pip", "install", "-U", "yt-dlp[default]"]), 300000)
+            return runCapture(y.cmd, y.base.slice(0, -2).concat(["-m", "pip", "install", "-U", "yt-dlp[default]"]), TIMEOUT.update)
                 .then(function (r) {
                     if (r.code !== 0) throw new Error(firstLine(r.stderr) || "pip falhou");
                     return detectYtdlp();
                 });
         }
-        return runCapture(y.cmd, ["-U"], 300000).then(function (r) {
+        return runCapture(y.cmd, ["-U"], TIMEOUT.update).then(function (r) {
             if (r.code !== 0) throw new Error(firstLine(r.stderr) || firstLine(r.stdout) || "yt-dlp -U falhou");
             return detectYtdlp();
         });
@@ -638,14 +635,9 @@ var HDLTools = (function () {
 
     return {
         isWin: isWin,
-        isMac: isMac,
         binDir: binDir,
-        dataDir: dataDir,
         state: state,
         detectAll: detectAll,
-        detectYtdlp: detectYtdlp,
-        detectFfmpeg: detectFfmpeg,
-        detectDeno: detectDeno,
         installYtdlp: installYtdlp,
         installFfmpeg: installFfmpeg,
         installDeno: installDeno,
@@ -657,9 +649,7 @@ var HDLTools = (function () {
         killAll: killAll,
         reveal: reveal,
         readClipboardSystem: readClipboardSystem,
-        rmrf: rmrf,
         ensureDir: ensureDir,
-        isFile: isFile,
         // expostos para os testes automáticos
         _isAllowedUrl: isAllowedUrl,
         _expectedHash: expectedHash,
