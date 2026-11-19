@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="11.0" ExtensionBundleId="com.seuestudio.helmetdl"
+    ExtensionBundleVersion="1.0.0" ExtensionBundleName="Helmet DL"
+    xmlns:ExtensionBundleId="http://ns.adobe.com/extension">
+    <ExtensionList>
+        <Extension Id="com.seuestudio.helmetdl.panel" Version="1.0.0" />
+    </ExtensionList>
+    <ExecutionEnvironment>
+        <HostList>
+            <!-- PPRO cobre Premiere Pro. Ajuste a faixa de versão conforme necessário. -->
+            <Host Name="PPRO" Version="[15.0,99.9]" />
+        </HostList>
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="11.0" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+    <DispatchInfoList>
+        <Extension Id="com.seuestudio.helmetdl.panel">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./client/index.html</MainPath>
+                    <ScriptPath>./host/index.jsx</ScriptPath>
+                    <CEFCommandLine>
+                        <!-- Necessário para usar require('child_process'), 'https' e 'fs' no painel -->
+                        <Parameter>--enable-nodejs</Parameter>
+                        <Parameter>--mixed-context</Parameter>
+                    </CEFCommandLine>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>Helmet DL</Menu>
+                    <Geometry>
+                        <Size>
+                            <Height>640</Height>
+                            <Width>360</Width>
+                        </Size>
+                        <MinSize>
+                            <Height>420</Height>
+                            <Width>320</Width>
+                        </MinSize>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>
