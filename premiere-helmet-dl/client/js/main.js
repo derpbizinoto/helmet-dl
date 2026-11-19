@@ -611,7 +611,9 @@ function runJob(job) {
     var o = job.opts;
     var outDir = "";
     var startedAt = Date.now();
-    job.tempOutputs = [];
+    job.tempOutputs = [];  // saídas de reencode ainda incompletas
+    job.created = [];      // arquivos que o yt-dlp começou a baixar
+    job.downloaded = [];   // arquivos finais entregues pelo yt-dlp (nunca apagados na limpeza)
 
     function progress(text, percent, nums) {
         setJob(job, { text: text, percent: percent === undefined ? null : percent, nums: nums || "" });
@@ -635,8 +637,10 @@ function runJob(job) {
             onProgress: function (p) { progress(p.text, p.percent, p.nums); },
             onLog: appendLog
         });
+        job.created = job.handle.created;
         return job.handle.promise;
     }).then(function (res) {
+        job.downloaded = res.files.slice();
         if (res.partialError) appendLog("Aviso: " + res.partialError);
         if (res.files.length && job.title === job.url) job.title = nodePath.basename(res.files[0]);
         return postProcess(job, res.files, res.alreadyHad);
@@ -662,8 +666,9 @@ function runJob(job) {
         appendLog("Concluído: " + x.finals.join(" | "));
     }).catch(function (e) {
         job.handle = null;
+        // cancelado ou com erro: apaga as sobras (o arquivo final já baixado fica)
+        cleanupPartials(outDir, startedAt, job);
         if (e.canceled || job.cancelRequested) {
-            cleanupPartials(outDir, startedAt, job);
             setJob(job, { state: "canceled", text: "Cancelado", percent: null, nums: "" });
             appendLog("Cancelado: " + job.url);
         } else {
@@ -710,6 +715,7 @@ function postProcess(job, files, alreadyHad) {
                             // a GPU falhou (driver, resolução não suportada…): refaz na CPU
                             if (!gpu || e.canceled || job.cancelRequested) throw e;
                             appendLog("O encode na GPU falhou (" + e.message + "). Refazendo na CPU…");
+                            try { nodeFs.unlinkSync(out); } catch (x) { /* a GPU não chegou a criar o arquivo */ }
                             return encodeWith(null);
                         });
                     }).then(function () {
@@ -741,12 +747,21 @@ function postProcess(job, files, alreadyHad) {
     }, Promise.resolve()).then(function () { return finals; });
 }
 
-// Remove sobras de um download cancelado (.part, fragmentos, saída de reencode incompleta).
+// Remove sobras de um download cancelado ou com erro: .part, fragmentos, formatos
+// intermediários e saída de reencode incompleta. Nunca apaga os arquivos finais
+// entregues pelo yt-dlp (job.downloaded) nem nada fora da pasta de destino.
 function cleanupPartials(outDir, since, job) {
     if (!hasNode) return;
-    (job.tempOutputs || []).forEach(function (f) { try { nodeFs.unlinkSync(f); } catch (e) { /* ignora */ } });
+    function rm(f) { try { nodeFs.unlinkSync(f); } catch (e) { /* já não existe */ } }
+    (job.tempOutputs || []).forEach(rm);
+    job.tempOutputs = [];
     if (!outDir) return;
+    var keep = (job.downloaded || []).map(function (f) { return nodePath.resolve(f).toLowerCase(); });
     setTimeout(function () { // espera o processo soltar os arquivos
+        (job.created || []).forEach(function (f) {
+            if (!HDLDownloader.isInside(outDir, f) || keep.indexOf(nodePath.resolve(f).toLowerCase()) >= 0) return;
+            [f, f + ".part", f + ".ytdl"].forEach(rm);
+        });
         try {
             nodeFs.readdirSync(outDir).forEach(function (name) {
                 if (!/\.(part|ytdl|temp)$|\.part-Frag\d+|\.temp\.\w+$/i.test(name)) return;
