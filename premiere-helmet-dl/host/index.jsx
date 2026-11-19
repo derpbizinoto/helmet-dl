@@ -1,4 +1,4 @@
-// host/index.jsx — Helmet DL
+﻿// host/index.jsx — Helmet DL
 // Lado ExtendScript: informa onde o projeto está salvo e importa os arquivos
 // baixados na aba Project (nunca na timeline).
 // As respostas são JSON montado à mão (o ExtendScript do Premiere não tem JSON nativo).

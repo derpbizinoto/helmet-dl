@@ -6,8 +6,6 @@
 
 var CLIENT_VERSION = "1.0.0";
 
-var inCEP = typeof window.__adobe_cep__ !== "undefined";
-var csInterface = inCEP ? new CSInterface() : null;
 var hasNode = typeof require === "function" && !!window.HDLTools && !!window.HDLDownloader;
 
 var nodePath = hasNode ? require("path") : null;
@@ -210,50 +208,7 @@ function updateEncoderHint() {
     });
 }
 
-// --- comunicação com o Premiere ----------------------------------------------------
-
-function evalHost(script) {
-    return new Promise(function (resolve, reject) {
-        if (!csInterface) { reject(new Error("Fora do Premiere.")); return; }
-        csInterface.evalScript(script, function (result) { resolve(String(result)); });
-    });
-}
-
-// Confere se o host/index.jsx está carregado. Se não estiver (erro ao carregar no
-// início), carrega de novo com $.evalFile e registra o erro exato no log.
-var hostReady = null;
-
-function ensureHost() {
-    if (!csInterface) return Promise.resolve(false);
-    if (hostReady) return hostReady;
-    var p = evalHost("typeof hdl_getProjectInfo").then(function (t) {
-        if (t === "function") return true;
-        var jsx = csInterface.getSystemPath(SystemPath.EXTENSION) + "/host/index.jsx";
-        var script = "(function(){try{$.evalFile(" + JSON.stringify(jsx) + ");return typeof hdl_getProjectInfo;}" +
-            "catch(e){return 'ERRO: '+e+(e.line?' (linha '+e.line+')':'');}})()";
-        return evalHost(script).then(function (r) {
-            if (r === "function") {
-                appendLog("Script do host carregado manualmente (" + jsx + ").");
-                return true;
-            }
-            appendLog("O script do host (host/index.jsx) não carregou: " + r);
-            if (hostReady === p) hostReady = null; // tenta de novo na próxima chamada
-            return false;
-        });
-    });
-    hostReady = p;
-    return p;
-}
-
-function callHost(script) {
-    return ensureHost().then(function () { return evalHost(script); }).then(function (raw) {
-        var parsed;
-        try { parsed = JSON.parse(raw); }
-        catch (e) { throw new Error("Resposta inválida do ExtendScript: " + raw); }
-        if (!parsed.ok) throw new Error(parsed.error || "Erro no ExtendScript.");
-        return parsed.data;
-    });
-}
+// --- comunicação com o Premiere (sempre pelo HDLBridge, em bridge.js) ---------------
 
 var project = { path: "", name: "" };
 
@@ -262,11 +217,11 @@ function helmetDir() {
 }
 
 function refreshProject() {
-    if (!csInterface) {
+    if (!HDLBridge.available) {
         els.projectInfo.textContent = "Prévia fora do Premiere";
         return Promise.resolve(project);
     }
-    return callHost("hdl_getProjectInfo()").then(function (d) {
+    return HDLBridge.call("hdl_getProjectInfo").then(function (d) {
         project.path = d.path || "";
         project.name = d.name || "";
         if (project.path) {
@@ -573,7 +528,7 @@ function enqueue() {
         els.urlInput.focus();
         return;
     }
-    if (!hasNode || !csInterface) {
+    if (!hasNode || !HDLBridge.available) {
         setStatus("Abra o painel dentro do Premiere (Janela › Extensões › Helmet DL) para baixar.", "warning");
         return;
     }
@@ -670,7 +625,7 @@ function runJob(job) {
         job.files = finals;
         progress("Importando no Project…", null);
         var list = finals.map(function (f) { return encodeURIComponent(f); }).join(",");
-        return callHost("hdl_importFiles(" + JSON.stringify(list) + "," + JSON.stringify(o.bin ? BIN_NAME : "") + ")")
+        return HDLBridge.call("hdl_importFiles", [list, o.bin ? BIN_NAME : ""])
             .then(function (r) { return { r: r, finals: finals }; });
     }).then(function (x) {
         var r = x.r;
@@ -1128,8 +1083,8 @@ function init() {
     window.addEventListener("beforeunload", HDLTools.killAll);
     window.addEventListener("unload", HDLTools.killAll);
     refreshProject();
-    if (csInterface) {
-        ensureHost().then(function () { return evalHost("hdl_getHostVersion()"); }).then(function (v) {
+    if (HDLBridge.available) {
+        HDLBridge.hostVersion().then(function (v) {
             if (v !== CLIENT_VERSION) appendLog("Aviso: host " + v + " ≠ painel " + CLIENT_VERSION + " (reinstale a extensão inteira).");
         });
     }
