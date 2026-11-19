@@ -58,16 +58,80 @@ Se o arquivo final tiver um codec que o Premiere costuma não abrir (VP9, AV1, O
 ## Estrutura
 
 ```
+instalar.bat              instala para o usuário atual (sem administrador)
+Add Keys.reg              alternativa manual: libera extensões não assinadas (CSXS 9 a 16)
+empacotar.ps1             gera dist\HelmetDL-<versão>.zip para distribuir
+tests/                    testes automáticos (node tests\run-tests.js)
+TESTES.md                 roteiro de teste manual no Premiere
+AUDITORIA.md              auditoria de segurança e limpeza (o que foi achado e corrigido)
+CHANGELOG.md              o que mudou em cada versão
+
 premiere-helmet-dl/
-  CSXS/manifest.xml       manifesto CEP (Node habilitado)
+  CSXS/manifest.xml       manifesto CEP (Node habilitado; ver "Segurança")
+  host/index.jsx          ExtendScript: caminho do projeto e importação no Project
   client/index.html       painel
   client/css/style.css    identidade Violet Terminal
-  client/js/tools.js      encontra/instala/atualiza yt-dlp, FFmpeg e Deno
-  client/js/downloader.js argumentos do yt-dlp, progresso, reencode com FFmpeg
-  client/js/main.js       interface, fila, integração com o Premiere
-  host/index.jsx          ExtendScript: caminho do projeto e importação no Project
+  client/js/
+    config.js             tudo que é configurável: versão, nomes, tempos limite,
+                          endereços das ferramentas; liga/desliga o log de depuração
+    bridge.js             única porta de conversa com o Premiere (ExtendScript)
+    tools.js              encontra/instala/atualiza yt-dlp, FFmpeg e Deno; roda processos
+    downloader.js         argumentos do yt-dlp, progresso, reencode com FFmpeg, nomes de arquivo
+    ui.js                 elementos da tela, opções, configurações salvas, log
+    project.js            projeto aberto e pasta "Helmet DL"
+    preview.js            validação dos links e prévia (título, miniatura, duração)
+    tools-ui.js           card "Ferramentas" e atualização automática do yt-dlp
+    clipboard.js          botão de colar
+    queue.js              fila de downloads e barra de progresso do rodapé
+    main.js               liga os botões aos módulos e inicia o painel
 ```
 
-## Depuração
+Os arquivos de `client/js/` são carregados pelo `index.html` nessa ordem (cada um usa os de cima).
 
-Com o painel aberto, acesse `http://localhost:8098` no Chrome (arquivo `.debug`). O card **Log** no painel mostra os comandos exatos do yt-dlp/FFmpeg e as saídas.
+## Segurança
+
+O painel roda com o Node.js liberado (`--enable-nodejs` e `--mixed-context` no `manifest.xml`), porque precisa rodar o yt-dlp e o FFmpeg e gravar arquivos. Por isso:
+
+- **Links:** só `http://` e `https://`. O link vai para o yt-dlp depois de um `--`, então nunca é lido como opção.
+- **Programas:** sempre chamados com a lista de argumentos separada (sem montar comando de texto). Programas do Windows (PowerShell, taskkill, tar, explorer) são chamados pelo caminho completo. Todos têm tempo limite e são encerrados quando o painel fecha.
+- **Ferramentas baixadas:** só do GitHub, por HTTPS, e só são instaladas se o SHA-256 bater com o publicado na página oficial. Se não bater, o arquivo é apagado e a versão anterior continua.
+- **Arquivos:** os nomes são limpos (sem barras, caracteres proibidos ou nomes reservados do Windows), ficam sempre dentro da pasta `Helmet DL` e nunca sobrescrevem um arquivo existente (ganham "(2)", "(3)"…). Downloads cancelados ou com erro têm as sobras (`.part`, fragmentos, reencode incompleto) apagadas.
+- **Tela:** textos que vêm da internet (títulos, mensagens) entram como texto, nunca como HTML. Nenhum código é carregado de fora (sem CDN, sem `eval`).
+- **Cookies:** a opção "Cookies do navegador" só passa o **nome** do navegador para o yt-dlp (`--cookies-from-browser firefox`). Quem lê os cookies é o próprio yt-dlp, na hora; a extensão nunca vê, grava nem registra o conteúdo deles.
+- **Assinatura:** a extensão ainda não é assinada, por isso o instalador liga o `PlayerDebugMode` (que permite extensões não assinadas). Assinar com certificado é uma pendência (decisão D2 da auditoria).
+
+## Desenvolvimento
+
+### Testes
+
+```
+node tests\run-tests.js
+```
+
+Testa sem Premiere e sem internet: limpeza de nomes, links aceitos/recusados, conferência de SHA-256, argumentos do yt-dlp, mensagens de erro e a conversa com o Premiere (sobre uma imitação da API em `tests/premiere-mock.js`). O que só dá para ver no Premiere está em `TESTES.md`.
+
+### Depuração
+
+O arquivo `.debug` **não** faz parte do repositório nem do pacote (ele abre uma porta de depuração no computador). Na máquina de desenvolvimento, crie `premiere-helmet-dl\.debug` com:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionList>
+    <Extension Id="com.seuestudio.helmetdl.panel">
+        <HostList>
+            <Host Name="PPRO" Port="8098" />
+        </HostList>
+    </Extension>
+</ExtensionList>
+```
+
+Com o painel aberto, acesse `http://localhost:8098` no Chrome. Para mensagens técnicas extras, mude `DEBUG: false` para `true` em `client/js/config.js` (nunca distribua assim). O card **Log** do painel mostra os comandos exatos do yt-dlp/FFmpeg e as saídas.
+
+Para ver o visual fora do Premiere, sirva a pasta `client` num servidor local (por exemplo `py -3 -m http.server` dentro dela) e abra `index.html?demo`: a fila aparece preenchida com exemplos.
+
+### Nova versão
+
+1. Mude a versão nos três lugares: `CSXS/manifest.xml` (`ExtensionBundleVersion` e `Extension Version`), `client/js/config.js` (`CLIENT_VERSION`) e `host/index.jsx` (`HDL_HOST_VERSION`).
+2. Anote no `CHANGELOG.md`.
+3. Rode `node tests\run-tests.js` e o roteiro do `TESTES.md`.
+4. Rode `powershell -ExecutionPolicy Bypass -File empacotar.ps1`. Ele confere se as três versões batem, monta `dist\HelmetDL-<versão>.zip` só com o necessário e **para com erro** se achar `.debug`, certificado, chave ou arquivo de cookies.

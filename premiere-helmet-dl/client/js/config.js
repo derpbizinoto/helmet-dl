@@ -30,7 +30,7 @@ var HDL_CONFIG = (function () {
     return {
         // Deve ser igual à versão do manifest.xml e a HDL_HOST_VERSION em host/index.jsx
         // (o empacotar.ps1 confere).
-        CLIENT_VERSION: "1.0.0",
+        CLIENT_VERSION: "1.0.1",
 
         // Liga mensagens técnicas no console do painel (DevTools). Deixe false.
         DEBUG: false,

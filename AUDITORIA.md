@@ -239,3 +239,56 @@ para o `TESTES.md`, e **você precisará testar no Premiere**, porque eu não te
 
 **Fase 1 encerrada. Aguardando sua aprovação — da lista de funções (seção 2), das decisões
 D1 a D5 e do plano — antes de alterar qualquer coisa.**
+
+---
+
+## 7. Situação final (versão 1.0.1)
+
+Aprovado em "Aprovo, pode seguir" (lista de funções, decisões D1 a D5 como sugeridas e o plano).
+Feito na branch `limpeza-seguranca`, um commit por etapa.
+
+| Item | Situação | Etapa / commit |
+|---|---|---|
+| A1 | Corrigido: só HTTPS do GitHub (inclusive nos redirecionamentos) e SHA-256 conferido antes de instalar | 3 · `5b9a0bb` |
+| A2 | Corrigido: `.debug` fora do git, removido pelo `instalar.bat`, recusado pelo `empacotar.ps1` | 1-2 · `02fd70b`, `a5c3831` |
+| M1 | Corrigido: PowerShell, taskkill, tar e explorer pelo caminho completo | 4 · `9193c18` |
+| M2 | Corrigido: PowerShell com script fixo, valores por variável de ambiente | 4 · `9193c18` |
+| M3 | Corrigido: todos os processos registrados e encerrados ao fechar o painel | 4 · `9193c18` |
+| M4 | Corrigido: miniatura só http(s) | 6 · `0c37b76` |
+| M5 | Corrigido: FFmpeg com `-n` e nome único "(2)", "(3)"… | 5 · `14791c0` |
+| M6 | Corrigido: limpeza também em erro (decisão D3) | 5 · `14791c0` |
+| M7 | **Pendente** (decisão D2): falta assinar a extensão; explicado no README | — |
+| B1 | Corrigido: validação com `new URL()` | 6 · `0c37b76` |
+| B2 | Corrigido: `--windows-filenames`, arquivos fora da pasta ignorados, nomes do reencode limpos | 5 · `14791c0` |
+| B3 | Corrigido: fila montada sem `innerHTML` (DOM idêntico ao original) | 6 · `0c37b76` |
+| B4 | Corrigido: PATH só com caminhos completos | 4 · `9193c18` |
+| B5 | Corrigido: `bridge.js` com lista de funções e `{ok, data, error}` | 7 · `b0dc725` |
+| L1 | Corrigido: `main.js` dividido em módulos. Desvio do plano: em vez de um único nome global, cada arquivo tem um nome com prefixo `HDL` (`HDLQueue`, `HDLUi`…), o mesmo padrão que `tools.js` e `downloader.js` já usavam | 8 · `5701b01` |
+| L2 | Corrigido: `config.js` | 8 · `5701b01` |
+| L3 | Corrigido: `installZipTool`, `detectSimple`, `canceledError`, `commandForLog` | 8 · `5701b01` |
+| L4 | Corrigido: código sem efeito e sem uso removido | 8 · `5701b01` |
+| L5 | Corrigido: mensagens claras para rede, site não suportado, host não carregado | 9 · `8e29ad8` |
+| L6 | Corrigido: `HDLLog.debug`, desligado por padrão | 8 · `5701b01` |
+| L7 | Corrigido: `.gitignore` | 1 · `02fd70b` |
+| L8 | Corrigido: `Add Keys.reg` com CSXS 9 a 16, só `PlayerDebugMode` | 1 · `02fd70b` |
+| L9 | Corrigido: `empacotar.ps1` | 2 · `a5c3831` |
+| L10 | Corrigido: `index.jsx` em UTF-8 com BOM | 7 · `b0dc725` |
+| L11 | Mantido de propósito; `empacotar.ps1` e os testes conferem que as três versões batem | 2, 10 |
+| L12 | Corrigido: README na raiz, `CHANGELOG.md`, `TESTES.md` | 1, 10 |
+| L13 | Mantido de propósito (trocar o ID apagaria as configurações salvas) | — |
+| D1 | `_backup/` e `como instalar.txt` removidos (no histórico, commit `3328d34`); `?demo` mantido | 1 · `02fd70b` |
+| D4 | Mantido: o mesmo vídeo baixado de novo reaproveita o arquivo existente | — |
+| D5 | Mantido: sempre a versão mais nova, agora com SHA-256 | 3 · `5b9a0bb` |
+
+Coisas achadas durante a execução (fora da lista original):
+
+- **Acentos e emoji nos caminhos:** no Windows o yt-dlp mandava a saída na codificação antiga, e o painel não reconhecia arquivos numa pasta como "Projeto Ação 🎬" (afetava a limpeza das sobras). Corrigido com `--encoding utf-8` (etapa 5).
+- **Configurações salvas:** um valor estranho no armazenamento do painel virava parte de um seletor CSS; agora é comparado com as opções existentes (etapa 8).
+- **Log da ponte:** a mensagem "o script do host não carregou" não chegava ao Log do painel; voltou (etapa 8).
+- **Dica de cookies indevida:** o teste de "restrição de idade" casava com qualquer erro contendo "webpage" ou "message" (etapa 9).
+
+Testes: `node tests\run-tests.js` (26 testes, todos passando). Também foram feitos testes
+reais fora do Premiere: download e reencode de vídeo do YouTube numa pasta com acentos e emoji,
+cancelamento no meio, instalação das três ferramentas com SHA-256 (e recusa de arquivo
+adulterado), PowerShell com aspas no caminho, encerramento de processos. **Não foi testado
+dentro do Premiere** — siga o `TESTES.md`.
