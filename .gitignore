@@ -1,0 +1,45 @@
+# Dependências e builds
+node_modules/
+dist/
+build/
+*.zxp
+*.zip
+
+# Certificados e chaves de assinatura — NUNCA versionar
+*.p12
+*.pfx
+*.key
+*.pem
+*.crt
+*.cer
+
+# Cookies e dados de login — NUNCA versionar
+*cookies*.txt
+
+# Depuração do CEP (só na máquina de desenvolvimento; não vai no pacote)
+.debug
+
+# Ferramentas baixadas (yt-dlp, FFmpeg, Deno) e downloads de teste
+bin/
+*.exe
+*.part
+*.ytdl
+*.download
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# Temporários
+*.tmp
+*.log
+
+# Lixo do sistema/editores
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

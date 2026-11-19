@@ -2,7 +2,7 @@
 
 Extensão CEP para o Adobe Premiere Pro que baixa vídeos do YouTube, TikTok, X, Instagram, Twitch e de [mais de mil sites suportados pelo yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), salva numa pasta `Helmet DL` ao lado do projeto e importa o arquivo direto na aba **Project** (nunca na timeline).
 
-Mesma identidade visual do Helmet Desk, tema Clássico (Violet Terminal com degradês sutis), com Geo em caixa alta no nome e Roboto no resto. O tema Frutiger Aero está guardado em `../_backup/tema-frutiger-aero` (veja o `COMO_RESTAURAR.md` de lá).
+Mesma identidade visual do Helmet Desk, tema Clássico (Violet Terminal com degradês sutis), com Geo em caixa alta no nome e Roboto no resto. O tema Frutiger Aero antigo ficou guardado no histórico do git (commit `3328d34`, pasta `_backup/tema-frutiger-aero`, com um `COMO_RESTAURAR.md`).
 
 ### Créditos das fontes
 
@@ -16,7 +16,7 @@ Embutidas em `client/fonts/` (com o texto da licença), copiadas do Helmet Desk.
 ## Instalação
 
 1. Feche o Premiere.
-2. Rode `instalar.bat` (fica uma pasta acima desta). Ele copia a extensão para `%APPDATA%\Adobe\CEP\extensions\` e libera extensões não assinadas (`PlayerDebugMode`).
+2. Rode `instalar.bat` (dois cliques; não precisa de administrador). Ele copia a extensão para `%APPDATA%\Adobe\CEP\extensions\` e libera extensões não assinadas (`PlayerDebugMode`).
    Alternativa manual: copiar esta pasta para `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\` e rodar `Add Keys.reg`.
 3. No Premiere: **Window › Extensions › Helmet DL**.
 
