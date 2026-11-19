@@ -12,7 +12,6 @@ var hasNode = typeof require === "function" && !!window.HDLTools && !!window.HDL
 
 var nodePath = hasNode ? require("path") : null;
 var nodeFs = hasNode ? require("fs") : null;
-var nodeCp = hasNode ? require("child_process") : null;
 
 var BIN_NAME = "Helmet DL";
 var FOLDER_NAME = "Helmet DL";
@@ -289,11 +288,7 @@ function refreshProject() {
 function openInExplorer(target, select) {
     if (!hasNode) return;
     try {
-        if (HDLTools.isWin) {
-            nodeCp.spawn("explorer", select ? ["/select,", target] : [target], { detached: true });
-        } else {
-            nodeCp.spawn("open", select ? ["-R", target] : [target], { detached: true });
-        }
+        HDLTools.reveal(target, select);
     } catch (e) {
         appendLog("Não foi possível abrir a pasta: " + e.message);
     }
@@ -933,17 +928,7 @@ function readClipboard() {
 
     function viaSystem() {
         if (!hasNode) return Promise.reject(new Error("sem Node"));
-        var cmd, args;
-        if (HDLTools.isWin) {
-            cmd = nodePath.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-            if (!HDLTools.isFile(cmd)) cmd = "powershell";
-            args = ["-NoProfile", "-NonInteractive", "-STA", "-Command",
-                "try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}; Get-Clipboard -Raw"];
-        } else {
-            cmd = "pbpaste";
-            args = [];
-        }
-        return HDLTools.runCapture(cmd, args, 10000).then(function (r) {
+        return HDLTools.readClipboardSystem().then(function (r) {
             if (r.code !== 0) throw new Error("código " + r.code + (r.stderr ? ": " + r.stderr.trim().slice(0, 200) : ""));
             return r.stdout || "";
         });
@@ -1083,6 +1068,9 @@ function init() {
     }
 
     els.binDirNote.textContent = HDLTools.binDir;
+    // Ao fechar o painel (ou o Premiere), nenhum yt-dlp/FFmpeg fica rodando sozinho.
+    window.addEventListener("beforeunload", HDLTools.killAll);
+    window.addEventListener("unload", HDLTools.killAll);
     refreshProject();
     if (csInterface) {
         ensureHost().then(function () { return evalHost("hdl_getHostVersion()"); }).then(function (v) {

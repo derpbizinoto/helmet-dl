@@ -28,6 +28,22 @@ var HDLTools = (function () {
 
     var TOOLS = HDL_CONFIG.TOOLS;
 
+    // Programas do sistema pelo caminho completo. Chamados só pelo nome, o Windows
+    // procuraria primeiro na pasta atual (aqui, o %TEMP%), onde qualquer programa
+    // poderia ter deixado um "powershell.exe" falso.
+    var WINDIR = process.env.SystemRoot || process.env.windir || "C:\\Windows";
+    var SYSTEM32 = path.join(WINDIR, "System32");
+    var SYS = isWin ? {
+        powershell: path.join(SYSTEM32, "WindowsPowerShell", "v1.0", "powershell.exe"),
+        taskkill: path.join(SYSTEM32, "taskkill.exe"),
+        tar: path.join(SYSTEM32, "tar.exe"),
+        explorer: path.join(WINDIR, "explorer.exe")
+    } : {
+        ditto: "/usr/bin/ditto",
+        open: "/usr/bin/open",
+        pbpaste: "/usr/bin/pbpaste"
+    };
+
     // --- utilidades de arquivo ----------------------------------------------
 
     function ensureDir(d) {
@@ -67,8 +83,11 @@ var HDLTools = (function () {
 
     // Pastas onde costumam ficar executáveis. O Premiere herda o PATH de quando foi
     // aberto, então também olhamos locais comuns de instaladores (winget, scoop, brew…).
+    // Entradas relativas do PATH (ex.: ".") são ignoradas.
     function searchDirs() {
-        var dirs = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
+        var dirs = (process.env.PATH || "").split(path.delimiter)
+            .map(function (d) { return d.trim().replace(/^"(.*)"$/, "$1"); })
+            .filter(function (d) { return d && path.isAbsolute(d); });
         if (isWin) {
             var local = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
             dirs.push(path.join(local, "Microsoft", "WinGet", "Links"));
@@ -97,8 +116,9 @@ var HDLTools = (function () {
 
     // --- execução de processos ---------------------------------------------
 
-    function childEnv() {
-        var env = Object.assign({}, process.env);
+    // extra: variáveis a mais só para este processo (ex.: valores para o PowerShell).
+    function childEnv(extra) {
+        var env = Object.assign({}, process.env, extra || {});
         env.PYTHONIOENCODING = "utf-8";
         env.PYTHONUTF8 = "1";
         // garante que o yt-dlp encontre ffmpeg/deno instalados pela extensão
@@ -108,20 +128,31 @@ var HDLTools = (function () {
         return env;
     }
 
+    var running = []; // todos os processos abertos por este painel (para encerrar ao fechar)
+
+    // opts: { cwd, env (variáveis extras) }. Sempre spawn(caminho, [argumentos]), sem shell.
     function spawnTool(cmd, args, opts) {
         opts = opts || {};
-        return cp.spawn(cmd, args, {
+        var child = cp.spawn(cmd, args, {
             cwd: opts.cwd || os.tmpdir(),
-            env: childEnv(),
+            env: childEnv(opts.env),
             windowsHide: true
         });
+        running.push(child);
+        var forget = function () {
+            var i = running.indexOf(child);
+            if (i >= 0) running.splice(i, 1);
+        };
+        child.on("close", forget);
+        child.on("error", forget);
+        return child;
     }
 
-    function runCapture(cmd, args, timeoutMs) {
+    function runCapture(cmd, args, timeoutMs, env) {
         return new Promise(function (resolve) {
             var out = "", err = "", done = false, child;
             try {
-                child = spawnTool(cmd, args);
+                child = spawnTool(cmd, args, { env: env });
             } catch (e) {
                 resolve({ code: -1, stdout: "", stderr: String(e.message || e) });
                 return;
@@ -150,17 +181,51 @@ var HDLTools = (function () {
     }
 
     // Mata o processo e os filhos (o yt-dlp.exe abre um subprocesso Python e o ffmpeg).
-    function killTree(child) {
+    // sync: espera o taskkill terminar (usado quando o painel está fechando).
+    function killTree(child, sync) {
         if (!child || child.exitCode !== null) return;
         try {
-            if (isWin) {
-                cp.spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+            if (isWin && isFile(SYS.taskkill)) {
+                var args = ["/pid", String(child.pid), "/T", "/F"];
+                if (sync) cp.spawnSync(SYS.taskkill, args, { windowsHide: true, timeout: 3000 });
+                else cp.spawn(SYS.taskkill, args, { windowsHide: true });
             } else {
                 child.kill("SIGTERM");
             }
         } catch (e) {
-            try { child.kill(); } catch (e2) { /* ignora */ }
+            try { child.kill(); } catch (e2) { /* já terminou */ }
         }
+    }
+
+    // Chamado quando o painel fecha: nenhum yt-dlp/FFmpeg fica rodando sozinho.
+    function killAll() {
+        running.slice().forEach(function (child) { killTree(child, true); });
+        running = [];
+    }
+
+    // PowerShell com texto de comando FIXO; os valores (endereços, caminhos) entram
+    // por variáveis de ambiente, nunca dentro do texto. extraArgs: ex. ["-STA"].
+    function runPowerShell(script, env, timeoutMs, extraArgs) {
+        var args = ["-NoProfile", "-NonInteractive"].concat(extraArgs || [], ["-Command", script]);
+        return runCapture(SYS.powershell, args, timeoutMs, env);
+    }
+
+    // Abre a pasta (ou mostra o arquivo selecionado) no Explorer / Finder.
+    function reveal(target, select) {
+        var cmd = isWin ? SYS.explorer : SYS.open;
+        var args = isWin ? (select ? ["/select,", target] : [target]) : (select ? ["-R", target] : [target]);
+        var child = cp.spawn(cmd, args, { detached: true, stdio: "ignore" });
+        child.on("error", function () { /* sem Explorer: nada a fazer */ });
+        child.unref();
+    }
+
+    // Texto da área de transferência pelo próprio sistema (plano C do botão colar).
+    function readClipboardSystem() {
+        if (isWin) {
+            return runPowerShell("try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}; Get-Clipboard -Raw",
+                null, 10000, ["-STA"]);
+        }
+        return runCapture(SYS.pbpaste, [], 10000);
     }
 
     function firstLine(s) {
@@ -307,13 +372,14 @@ var HDLTools = (function () {
     }
 
     // Último recurso no Windows: o PowerShell usa a pilha de rede do Windows
-    // (proxy do sistema, outra ordem de IPs). Sem progresso detalhado.
+    // (proxy do sistema, outra ordem de IPs). Sem progresso detalhado. O arquivo
+    // baixado por aqui também passa pela conferência de SHA-256 (downloadVerified).
     function downloadFilePowerShell(url, dest) {
         var tmp = dest + ".download";
-        var cmd = "$ProgressPreference='SilentlyContinue'; " +
+        var script = "$ProgressPreference='SilentlyContinue'; " +
             "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; " +
-            "Invoke-WebRequest -UseBasicParsing -Uri '" + url.replace(/'/g, "''") + "' -OutFile '" + tmp.replace(/'/g, "''") + "'";
-        return runCapture("powershell", ["-NoProfile", "-NonInteractive", "-Command", cmd], 30 * 60000).then(function (r) {
+            "Invoke-WebRequest -UseBasicParsing -Uri $env:HDL_URL -OutFile $env:HDL_OUT";
+        return runPowerShell(script, { HDL_URL: url, HDL_OUT: tmp }, 30 * 60000).then(function (r) {
             if (r.code !== 0 || !isFile(tmp)) {
                 rmrf(tmp);
                 throw new Error("Não foi possível baixar " + url + " (" + (firstLine(r.stderr) || "PowerShell falhou") + ")");
@@ -399,16 +465,17 @@ var HDLTools = (function () {
 
     function extractZip(zip, destDir) {
         ensureDir(destDir);
-        if (isMac) {
-            return runCapture("ditto", ["-x", "-k", zip, destDir], 300000).then(check);
+        if (!isWin) {
+            return runCapture(SYS.ditto, ["-x", "-k", zip, destDir], 300000).then(check);
         }
+        var viaPowerShell = function () {
+            return runPowerShell("Expand-Archive -LiteralPath $env:HDL_ZIP -DestinationPath $env:HDL_DEST -Force",
+                { HDL_ZIP: zip, HDL_DEST: destDir }, 300000).then(check);
+        };
         // tar.exe vem no Windows 10/11 e é bem mais rápido que o Expand-Archive
-        var tarExe = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe");
-        return runCapture(isFile(tarExe) ? tarExe : "tar", ["-xf", zip, "-C", destDir], 300000).then(function (r) {
-            if (r.code === 0) return r;
-            return runCapture("powershell", ["-NoProfile", "-NonInteractive", "-Command",
-                "Expand-Archive -LiteralPath '" + zip.replace(/'/g, "''") + "' -DestinationPath '" +
-                destDir.replace(/'/g, "''") + "' -Force"], 300000).then(check);
+        if (!isFile(SYS.tar)) return viaPowerShell();
+        return runCapture(SYS.tar, ["-xf", zip, "-C", destDir], 300000).then(function (r) {
+            return r.code === 0 ? r : viaPowerShell();
         });
         function check(r) {
             if (r.code !== 0) throw new Error("Falha ao extrair " + path.basename(zip) + ": " + (r.stderr || r.stdout));
@@ -587,11 +654,17 @@ var HDLTools = (function () {
         spawnTool: spawnTool,
         runCapture: runCapture,
         killTree: killTree,
+        killAll: killAll,
+        reveal: reveal,
+        readClipboardSystem: readClipboardSystem,
         rmrf: rmrf,
         ensureDir: ensureDir,
         isFile: isFile,
         // expostos para os testes automáticos
         _isAllowedUrl: isAllowedUrl,
-        _expectedHash: expectedHash
+        _expectedHash: expectedHash,
+        _searchDirs: searchDirs,
+        _downloadFilePowerShell: downloadFilePowerShell,
+        _extractZip: extractZip
     };
 })();
