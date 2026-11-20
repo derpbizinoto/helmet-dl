@@ -1,5 +1,11 @@
 # Changelog — Helmet DL
 
+## 1.2.0 — inglês
+
+- O painel agora tem inglês e português. **Inglês é o idioma padrão**; para trocar, use **Opções › Language / Idioma**. A troca vale na hora (sem fechar o painel) e fica salva.
+- Mensagens de erro, andamento dos downloads, card Ferramentas e Log também seguem o idioma escolhido. Itens da lista que já terminaram e linhas antigas do Log ficam no idioma em que foram escritos.
+- Testes novos garantem que toda frase do painel tem tradução.
+
 ## 1.1.0 — limpeza e segurança
 
 Nenhum recurso novo e nenhuma mudança visual. O painel funciona igual; por baixo ficou mais seguro e organizado. Detalhes de cada item em `AUDITORIA.md`.

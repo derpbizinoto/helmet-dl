@@ -5,6 +5,7 @@
 (function () {
     var C = HDL_CONFIG;
     var U = HDLUi;
+    var tr = HDLI18n.t;
     var els = U.els;
 
     function bindEvents() {
@@ -20,13 +21,13 @@
         els.btnPaste.addEventListener("click", function () {
             HDLClipboard.read().then(function (t) {
                 t = String(t || "").trim();
-                if (!t) { U.setStatus("A área de transferência está vazia.", "warning"); return; }
+                if (!t) { U.setStatus(tr("A área de transferência está vazia."), "warning"); return; }
                 els.urlInput.value = t;
                 U.setStatus("");
                 HDLPreview.cancel();
                 HDLPreview.update();
             }, function () {
-                U.setStatus("Não consegui ler a área de transferência. Use Ctrl+V no campo.", "warning");
+                U.setStatus(tr("Não consegui ler a área de transferência. Use Ctrl+V no campo."), "warning");
                 els.urlInput.focus();
             });
         });
@@ -50,12 +51,30 @@
         els.projectInfo.addEventListener("click", HDLProject.refresh);
         window.addEventListener("focus", HDLProject.refresh);
 
+        els.langSelect.addEventListener("change", function () { HDLI18n.setLang(els.langSelect.value); });
+        HDLI18n.onChange(relabel);
+
         [["btnYtdlp", "ytdlp"], ["btnFfmpeg", "ffmpeg"], ["btnDeno", "deno"]].forEach(function (p) {
             els[p[0]].addEventListener("click", function () { HDLToolsUI.onButton(p[1]); });
         });
     }
 
+    // Idioma trocado: o texto fixo da tela já foi trocado pelo HDLI18n; aqui são
+    // redesenhadas as partes montadas pelo código. (O Log fica como estava.)
+    function relabel() {
+        els.langSelect.value = HDLI18n.lang();
+        U.setStatus("");
+        U.updateVisibility();
+        HDLToolsUI.render();
+        HDLPreview.relabel();
+        HDLQueue.relabel();
+        if (U.hasNode) HDLProject.refresh();
+        else els.projectInfo.textContent = tr("Prévia fora do Premiere");
+    }
+
     function init() {
+        HDLI18n.apply(document.body);
+        els.langSelect.value = HDLI18n.lang();
         els.versionNote.textContent = "v" + C.CLIENT_VERSION;
         U.loadSettings();
         U.updateVisibility();
@@ -64,7 +83,7 @@
         HDLToolsUI.render();
 
         if (!U.hasNode) {
-            els.projectInfo.textContent = "Prévia fora do Premiere";
+            els.projectInfo.textContent = tr("Prévia fora do Premiere");
             if (/demo/.test(location.search)) HDLQueue.demo();
             return;
         }
@@ -80,18 +99,18 @@
         HDLProject.refresh();
         if (HDLBridge.available) {
             HDLBridge.hostVersion().then(function (v) {
-                if (v !== C.CLIENT_VERSION) U.appendLog("Aviso: host " + v + " ≠ painel " + C.CLIENT_VERSION + " (reinstale a extensão inteira).");
+                if (v !== C.CLIENT_VERSION) U.appendLog(tr("Aviso: host {0} ≠ painel {1} (reinstale a extensão inteira).", v, C.CLIENT_VERSION));
             });
         }
         HDLTools.detectAll().then(function (st) {
             HDLToolsUI.render();
             U.updateEncoderHint();
-            U.appendLog("yt-dlp: " + (st.ytdlp ? st.ytdlp.version + " (" + st.ytdlp.cmd + ")" : "não encontrado"));
-            U.appendLog("FFmpeg: " + (st.ffmpeg ? st.ffmpeg.version + " (" + st.ffmpeg.cmd + ")" : "não encontrado"));
-            U.appendLog("Deno: " + (st.deno ? st.deno.version + " (" + st.deno.cmd + ")" : "não encontrado"));
+            U.appendLog("yt-dlp: " + (st.ytdlp ? st.ytdlp.version + " (" + st.ytdlp.cmd + ")" : tr("não encontrado")));
+            U.appendLog("FFmpeg: " + (st.ffmpeg ? st.ffmpeg.version + " (" + st.ffmpeg.cmd + ")" : tr("não encontrado")));
+            U.appendLog("Deno: " + (st.deno ? st.deno.version + " (" + st.deno.cmd + ")" : tr("não encontrado")));
             if (!st.ytdlp || !st.ffmpeg) {
                 els.toolsDetails.open = true;
-                U.setStatus("Na primeira vez, as ferramentas (yt-dlp, FFmpeg e Deno) são baixadas automaticamente quando você clicar em Download.", "");
+                U.setStatus(tr("Na primeira vez, as ferramentas (yt-dlp, FFmpeg e Deno) são baixadas automaticamente quando você clicar em Download."), "");
             }
             HDLToolsUI.maybeAutoUpdate();
             if (els.urlInput.value.trim()) HDLPreview.update();

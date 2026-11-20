@@ -5,6 +5,7 @@
 var HDLPreview = (function () {
     var C = HDL_CONFIG;
     var U = HDLUi;
+    var tr = HDLI18n.t;
     var els = U.els;
 
     var timer = null;
@@ -82,7 +83,7 @@ var HDLPreview = (function () {
             currentKey = "";
             hide();
             if (parsed.valid.length > 1) {
-                els.previewNote.textContent = parsed.valid.length + " links — todos vão para a fila.";
+                els.previewNote.textContent = tr("{0} links — todos vão para a fila.", parsed.valid.length);
                 els.previewNote.style.display = "";
             }
             return;
@@ -99,7 +100,7 @@ var HDLPreview = (function () {
         els.preview.className = "preview loading";
         els.previewThumb.removeAttribute("src");
         els.previewDuration.textContent = "";
-        els.previewTitle.textContent = "Carregando informações…";
+        els.previewTitle.textContent = tr("Carregando informações…");
         els.previewMeta.textContent = url;
         els.previewNote.style.display = "none";
 
@@ -115,7 +116,7 @@ var HDLPreview = (function () {
             if (handle !== h) return;
             handle = null;
             els.preview.style.display = "none";
-            els.previewNote.textContent = "Não deu para ler o link: " + HDLDownloader.friendlyError(e.message);
+            els.previewNote.textContent = tr("Não deu para ler o link: {0}", HDLDownloader.friendlyError(e.message));
             els.previewNote.style.display = "";
         });
     }
@@ -128,13 +129,13 @@ var HDLPreview = (function () {
         // a esse servidor e enviar a identificação de login do usuário.
         if (/^https?:\/\//i.test(info.thumbnail || "")) els.previewThumb.src = info.thumbnail;
         else els.previewThumb.removeAttribute("src");
-        els.previewDuration.textContent = info.isLive ? "AO VIVO" : U.fmtDuration(info.duration);
+        els.previewDuration.textContent = info.isLive ? tr("AO VIVO") : U.fmtDuration(info.duration);
         els.previewTitle.textContent = info.title;
         var meta = [];
-        if (info.isPlaylist) meta.push("Playlist · " + info.count + " vídeos");
+        if (info.isPlaylist) meta.push(tr("Playlist · {0} vídeos", info.count));
         if (info.uploader) meta.push(info.uploader);
         if (info.site) meta.push(info.site);
-        if (info.maxRes) meta.push("até " + info.maxRes + "p");
+        if (info.maxRes) meta.push(tr("até {0}p", info.maxRes));
         els.previewMeta.textContent = meta.join(" · ");
         updateQualityNote();
     }
@@ -144,17 +145,24 @@ var HDLPreview = (function () {
         var o = U.readOptions();
         var q = parseInt(o.quality, 10);
         if (o.content !== "audio" && q && currentInfo.maxRes && q > currentInfo.maxRes) {
-            els.previewNote.textContent = "Esse vídeo vai só até " + currentInfo.maxRes + "p — vai baixar nessa qualidade.";
+            els.previewNote.textContent = tr("Esse vídeo vai só até {0}p — vai baixar nessa qualidade.", currentInfo.maxRes);
             els.previewNote.style.display = "";
         } else if (currentInfo.isLive) {
-            els.previewNote.textContent = "É uma live: o download segue até ela acabar (ou até você cancelar).";
+            els.previewNote.textContent = tr("É uma live: o download segue até ela acabar (ou até você cancelar).");
             els.previewNote.style.display = "";
         } else {
             els.previewNote.style.display = "none";
         }
     }
 
+    // Idioma trocado: redesenha a prévia que está na tela.
+    function relabel() {
+        if (currentInfo) render(currentInfo);
+        else if (handle) els.previewTitle.textContent = tr("Carregando informações…");
+    }
+
     return {
+        relabel: relabel,
         normalizeUrl: normalizeUrl,
         parseUrls: parseUrls,
         schedule: schedule,

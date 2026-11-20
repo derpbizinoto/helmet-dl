@@ -3,6 +3,7 @@
 //
 // Mapa dos arquivos do painel (na ordem em que o index.html carrega):
 //   config.js      este arquivo: constantes + logger de depuração (HDLLog)
+//   i18n.js        idioma do painel (inglês ou português) e as traduções (HDLI18n)
 //   bridge.js      ponte única painel -> Premiere (HDLBridge)
 //   tools.js       acha, instala e atualiza yt-dlp/FFmpeg/Deno; roda processos (HDLTools)
 //   downloader.js  comandos do yt-dlp e do FFmpeg, progresso, reencode, GPU (HDLDownloader)
@@ -30,7 +31,7 @@ var HDL_CONFIG = (function () {
     return {
         // Deve ser igual à versão do manifest.xml e a HDL_HOST_VERSION em host/index.jsx
         // (o empacotar.ps1 confere).
-        CLIENT_VERSION: "1.1.0",
+        CLIENT_VERSION: "1.2.0",
 
         // Liga mensagens técnicas no console do painel (DevTools). Deixe false.
         DEBUG: false,
@@ -41,6 +42,7 @@ var HDL_CONFIG = (function () {
 
         // --- Configurações lembradas (localStorage) ------------------------------
         SETTINGS_KEY: "helmetdl.settings.v1",
+        LANG_KEY: "helmetdl.lang",          // "en" (padrão) ou "pt"
         UPDATE_KEY: "helmetdl.lastUpdateCheck",
         PENDING_CLEANUP_KEY: "helmetdl.pendingCleanup", // download em andamento (para limpar se o painel fechar)
         AUTO_UPDATE_INTERVAL_MS: 20 * 60 * 60 * 1000, // confere o yt-dlp no máximo a cada 20 h

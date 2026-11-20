@@ -6,6 +6,7 @@
 var HDLClipboard = (function () {
     var C = HDL_CONFIG;
     var U = HDLUi;
+    var tr = HDLI18n.t;
 
     function withTimeout(promise, ms) {
         return new Promise(function (resolve, reject) {
@@ -59,7 +60,7 @@ var HDLClipboard = (function () {
         }, Promise.resolve(null)).then(function (text) {
             U.els.urlInput.focus();
             if (text === null) {
-                U.appendLog("Não deu para ler a área de transferência — " + reasons.join(" | "));
+                U.appendLog(tr("Não deu para ler a área de transferência — {0}", reasons.join(" | ")));
                 throw new Error("clipboard");
             }
             return text;

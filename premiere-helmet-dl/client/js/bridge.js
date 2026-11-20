@@ -17,6 +17,7 @@ var HDLBridge = (function () {
         typeof CSInterface === "function";
     var cs = available ? new CSInterface() : null;
     var log = function () {};
+    var tr = HDLI18n.t;
 
     var LINE_SEP = new RegExp(String.fromCharCode(0x2028), "g");
     var PARA_SEP = new RegExp(String.fromCharCode(0x2029), "g");
@@ -31,13 +32,13 @@ var HDLBridge = (function () {
     }
 
     function buildScript(name, args) {
-        if (FUNCTIONS.indexOf(name) < 0) throw new Error("Função do host não permitida: " + name);
+        if (FUNCTIONS.indexOf(name) < 0) throw new Error(tr("Função do host não permitida: {0}", name));
         return name + "(" + (args || []).map(toScriptString).join(",") + ")";
     }
 
     function evalRaw(script) {
         return new Promise(function (resolve, reject) {
-            if (!cs) { reject(new Error("Fora do Premiere.")); return; }
+            if (!cs) { reject(new Error(tr("Fora do Premiere."))); return; }
             cs.evalScript(script, function (result) { resolve(String(result)); });
         });
     }
@@ -56,10 +57,10 @@ var HDLBridge = (function () {
                 "catch(e){return 'ERRO: '+e+(e.line?' (linha '+e.line+')':'');}})()";
             return evalRaw(script).then(function (r) {
                 if (r === "function") {
-                    log("Script do host carregado manualmente (" + jsx + ").");
+                    log(tr("Script do host carregado manualmente ({0}).", jsx));
                     return true;
                 }
-                log("O script do host (host/index.jsx) não carregou: " + r);
+                log(tr("O script do host (host/index.jsx) não carregou: {0}", r));
                 if (hostReady === p) hostReady = null; // tenta de novo na próxima chamada
                 return false;
             });
@@ -76,13 +77,13 @@ var HDLBridge = (function () {
             var parsed;
             try { parsed = JSON.parse(raw); }
             catch (e) {
-                log("Resposta inválida do ExtendScript (" + name + "): " + raw);
+                log(tr("Resposta inválida do ExtendScript ({0}): {1}", name, raw));
                 // "EvalScript error" = a função não existe no Premiere: o host/index.jsx não carregou
                 throw new Error(/EvalScript error/i.test(raw)
-                    ? "A parte da extensão que roda dentro do Premiere não carregou. Feche o Premiere e reinstale a extensão (instalar.bat)."
-                    : "O Premiere devolveu uma resposta inesperada. Veja os detalhes no Log.");
+                    ? tr("A parte da extensão que roda dentro do Premiere não carregou. Feche o Premiere e reinstale a extensão (instalar.bat).")
+                    : tr("O Premiere devolveu uma resposta inesperada. Veja os detalhes no Log."));
             }
-            if (!parsed || !parsed.ok) throw new Error((parsed && parsed.error) || "Erro no ExtendScript.");
+            if (!parsed || !parsed.ok) throw new Error(parsed && parsed.error ? HDLI18n.tMessage(parsed.error) : tr("Erro no ExtendScript."));
             return parsed.data;
         });
     }
