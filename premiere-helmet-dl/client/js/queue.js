@@ -137,12 +137,14 @@ var HDLQueue = (function () {
                 onLog: U.appendLog
             });
             job.created = job.handle.created;
+            savePending(job);
             return job.handle.promise;
         }).then(function (res) {
             job.downloaded = res.files.slice();
             // No Reencode o original é apagado quando dá certo; se o reencode for cancelado
             // ou falhar, ele também é apagado (a não ser que já existisse antes deste download).
             if (o.content !== "audio" && o.mode === "reencode" && !res.alreadyHad) job.intermediates = res.files.slice();
+            savePending(job);
             if (res.partialError) U.appendLog("Aviso: " + res.partialError);
             if (res.files.length && job.title === job.url) job.title = nodePath.basename(res.files[0]);
             return postProcess(job, res.files, res.alreadyHad);
@@ -168,6 +170,7 @@ var HDLQueue = (function () {
             });
             setJob(job, { state: state, text: text, percent: null, nums: [job.resLabel, U.fmtBytes(size)].filter(Boolean).join(" · ") });
             U.appendLog("Concluído: " + x.finals.join(" | "));
+            clearPending(job);
         }).catch(function (e) {
             job.handle = null;
             // cancelado ou com erro: apaga as sobras (o arquivo final já baixado fica)
@@ -189,6 +192,7 @@ var HDLQueue = (function () {
         var codecLabel = (HDLDownloader.CODECS[o.codec] || HDLDownloader.CODECS.h264).label;
         var out = HDLDownloader.reencodeOutput(file, o.codec);
         job.tempOutputs.push(out);
+        savePending(job);
         var gpuStep = (o.encoder === "gpu" && o.codec !== "prores")
             ? HDLDownloader.detectGpu().then(function (g) { return HDLDownloader.gpuVideoArgs(g, o.codec) ? g : null; })
             : Promise.resolve(null);
@@ -306,22 +310,82 @@ var HDLQueue = (function () {
         job.tempOutputs = [];
         setTimeout(function () { // espera o processo soltar os arquivos
             removeLeftovers(outDir, since, job, false);
+            clearPending(job);
         }, C.CLEANUP_DELAY_MS);
     }
 
-    // Painel (ou Premiere) fechando: os processos já foram encerrados (HDLTools.killAll);
-    // apaga agora, sem esperar, as sobras do download que estava em andamento.
+    // --- download interrompido pelo fechamento do painel ------------------------------
+    // Enquanto um download roda, fica anotado (no armazenamento do painel) onde estão as
+    // sobras dele. Se o painel fechar no meio, a limpeza tenta rodar na hora; se o Premiere
+    // não der tempo para isso, ela roda na próxima vez que o painel abrir.
+
+    function savePending(job) {
+        if (!U.hasNode || !job.outDir) return;
+        try {
+            localStorage.setItem(C.PENDING_CLEANUP_KEY, JSON.stringify({
+                outDir: job.outDir,
+                since: job.startedAt,
+                created: (job.created || []).slice(),
+                downloaded: (job.downloaded || []).slice(),
+                intermediates: (job.intermediates || []).slice(),
+                tempOutputs: (job.tempOutputs || []).slice()
+            }));
+        } catch (e) { HDLLog.debug("não consegui anotar o download em andamento", e.message); }
+    }
+
+    function readPending() {
+        var rec = null;
+        try { rec = JSON.parse(localStorage.getItem(C.PENDING_CLEANUP_KEY) || "null"); } catch (e) { rec = null; }
+        if (!rec || typeof rec.outDir !== "string" || typeof rec.since !== "number") return null;
+        // só a pasta "Helmet DL" de algum projeto, e listas só de texto
+        if (!nodePath.isAbsolute(rec.outDir) || nodePath.basename(rec.outDir) !== C.FOLDER_NAME) return null;
+        ["created", "downloaded", "intermediates", "tempOutputs"].forEach(function (k) {
+            rec[k] = Array.isArray(rec[k]) ? rec[k].filter(function (f) { return typeof f === "string"; }) : [];
+        });
+        return rec;
+    }
+
+    // job: só apaga a anotação se ela for deste download (outro já pode ter começado).
+    function clearPending(job) {
+        try {
+            if (job) {
+                var rec = readPending();
+                if (rec && rec.since !== job.startedAt) return;
+            }
+            localStorage.removeItem(C.PENDING_CLEANUP_KEY);
+        } catch (e) { HDLLog.debug("não consegui limpar a anotação", e.message); }
+    }
+
+    // Painel (ou Premiere) fechando: anota o estado mais recente, encerra os processos e
+    // apaga as sobras sem esperar.
     var closing = false;
 
-    function cleanupOnClose() {
+    function cleanupOnClose(killAll) {
         if (closing || !U.hasNode) return;
         closing = true;
-        jobs.forEach(function (job) {
-            if (job.state !== "running") return;
+        var active = jobs.filter(function (job) { return job.state === "running"; });
+        active.forEach(savePending);
+        killAll();
+        active.forEach(function (job) {
             job.cancelRequested = true;
             (job.tempOutputs || []).forEach(function (f) { rmFile(f, true); });
             removeLeftovers(job.outDir, job.startedAt, job, true);
+            clearPending(job);
         });
+    }
+
+    // Ao abrir o painel: se a última sessão fechou no meio de um download, apaga as sobras.
+    function cleanupLastSession() {
+        if (!U.hasNode) return;
+        var rec = readPending();
+        if (!rec) { clearPending(); return; }
+        setTimeout(function () {
+            if (jobs.some(function (j) { return j.state === "running"; })) return; // nunca no meio de outro download
+            rec.tempOutputs.forEach(function (f) { if (HDLDownloader.isInside(rec.outDir, f)) rmFile(f, false); });
+            removeLeftovers(rec.outDir, rec.since, rec, false);
+            clearPending();
+            U.appendLog("Apaguei as sobras do download interrompido quando o painel foi fechado (" + rec.outDir + ").");
+        }, C.CLEANUP_DELAY_MS);
     }
 
     function cancelJob(job) {
@@ -511,8 +575,10 @@ var HDLQueue = (function () {
         onListClick: onListClick,
         bindDock: bindDock,
         cleanupOnClose: cleanupOnClose,
+        cleanupLastSession: cleanupLastSession,
         demo: demo,
-        // exposto para os testes automáticos
-        _removeLeftovers: removeLeftovers
+        // expostos para os testes automáticos
+        _removeLeftovers: removeLeftovers,
+        _savePending: savePending
     };
 })();

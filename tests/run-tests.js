@@ -104,8 +104,15 @@ test("reencodeOutput: nome limpo e único ao lado do original", () => {
 // ---------------------------------------------------------------------------------
 // Limpeza das sobras (queue.js, carregado com uma tela falsa)
 
-const qctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLUi: { els: {}, hasNode: true }, HDLLog: ctx.HDLLog,
-    HDLDownloader: D, require, setTimeout, clearTimeout, Date };
+const store = {};
+const fakeStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; }
+};
+const panelLog = [];
+const qctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLUi: { els: {}, hasNode: true, appendLog: (l) => panelLog.push(l) },
+    HDLLog: ctx.HDLLog, HDLDownloader: D, require, setTimeout, clearTimeout, Date, localStorage: fakeStorage };
 vm.createContext(qctx);
 vm.runInContext(fs.readFileSync(path.join(JS, "queue.js"), "utf8"), qctx, { filename: "queue.js" });
 const Q = qctx.HDLQueue;
@@ -143,6 +150,34 @@ test("limpeza: arquivo que já existia antes (ou fora do Reencode) fica", () => 
         created: [path.join(dir, "Vídeo [abc].f137.mp4")], downloaded: [mkv], intermediates: []
     }, false);
     eq(fs.readdirSync(dir), ["Vídeo [abc].mkv"]);
+});
+
+test("limpeza: painel fechado no meio → sobras apagadas na próxima abertura", async () => {
+    const { dir, touch } = leftoversDir("Fechou Ação");
+    const since = Date.now() - 1000;
+    const mkv = touch("Vídeo [abc].mkv");
+    touch("Vídeo [abc] [H.264].mp4");                         // reencode pela metade
+    touch("Outro [abc].f137.mp4.part");
+    touch("Outro [abc].f251.webm.part");
+    touch("Já estava [xyz].mp4");
+    Q._savePending({ outDir: dir, startedAt: since, created: [], downloaded: [mkv],
+        intermediates: [mkv], tempOutputs: [path.join(dir, "Vídeo [abc] [H.264].mp4")] });
+    ok(store[ctx.HDL_CONFIG.PENDING_CLEANUP_KEY], "anotação gravada");
+    Q.cleanupLastSession();
+    await new Promise((r) => setTimeout(r, ctx.HDL_CONFIG.CLEANUP_DELAY_MS + 300));
+    eq(fs.readdirSync(dir), ["Já estava [xyz].mp4"]);
+    ok(!store[ctx.HDL_CONFIG.PENDING_CLEANUP_KEY], "anotação apagada");
+    ok(panelLog.some((l) => /sobras do download interrompido/.test(l)), "aviso no Log");
+});
+test("limpeza: anotação adulterada (pasta que não é 'Helmet DL') é ignorada", async () => {
+    const dir = path.join(TMP, "Outra Pasta");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "importante.part"), "x");
+    store[ctx.HDL_CONFIG.PENDING_CLEANUP_KEY] = JSON.stringify({ outDir: dir, since: 0, intermediates: [] });
+    Q.cleanupLastSession();
+    await new Promise((r) => setTimeout(r, ctx.HDL_CONFIG.CLEANUP_DELAY_MS + 300));
+    ok(fs.existsSync(path.join(dir, "importante.part")), "apagou fora da pasta Helmet DL");
+    ok(!store[ctx.HDL_CONFIG.PENDING_CLEANUP_KEY], "anotação inválida descartada");
 });
 
 // ---------------------------------------------------------------------------------

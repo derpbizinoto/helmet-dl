@@ -297,7 +297,18 @@ Depois do primeiro teste manual no Premiere:
 - Dois passos do `TESTES.md` estavam errados (Remux depois de Reencode; "projeto não salvo") e
   foram reescritos.
 
-Testes: `node tests\run-tests.js` (28 testes, todos passando). Também foram feitos testes
+Depois do segundo teste manual:
+
+- **Fechar o painel no meio** ainda deixava os `.part`: os processos eram encerrados, mas o Premiere
+  fecha o painel sem dar tempo para a limpeza. Agora o download em andamento fica anotado no
+  armazenamento do painel e, se a limpeza não rodar ao fechar, roda na próxima abertura (só na
+  pasta "Helmet DL" anotada).
+- **Reencode por GPU mais lento:** medido fora do Premiere com o mesmo arquivo, 1.0.0 e 1.0.1 levam
+  o mesmo tempo (8,3 s, NVIDIA NVENC, mesmos argumentos do FFmpeg). Aguardando o Log do teste.
+- **`.mkv` que sobrou de novo:** provavelmente era o que ficou do 1º teste (arquivo que já existia
+  antes do download é mantido de propósito). O roteiro agora pede para apagá-lo antes de testar.
+
+Testes: `node tests\run-tests.js` (30 testes, todos passando). Também foram feitos testes
 reais fora do Premiere: download e reencode de vídeo do YouTube numa pasta com acentos e emoji,
 cancelamento no meio, instalação das três ferramentas com SHA-256 (e recusa de arquivo
 adulterado), PowerShell com aspas no caminho, encerramento de processos. **Não foi testado

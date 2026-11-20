@@ -72,13 +72,11 @@
         HDLBridge.setLogger(U.appendLog);
         els.binDirNote.textContent = HDLTools.binDir;
         // Ao fechar o painel (ou o Premiere), nenhum yt-dlp/FFmpeg fica rodando sozinho
-        // e as sobras do download interrompido são apagadas.
-        var onClose = function () {
-            HDLTools.killAll();
-            HDLQueue.cleanupOnClose();
-        };
+        // e as sobras do download interrompido são apagadas (agora ou na próxima abertura).
+        var onClose = function () { HDLQueue.cleanupOnClose(HDLTools.killAll); };
         window.addEventListener("beforeunload", onClose);
         window.addEventListener("unload", onClose);
+        HDLQueue.cleanupLastSession();
         HDLProject.refresh();
         if (HDLBridge.available) {
             HDLBridge.hostVersion().then(function (v) {

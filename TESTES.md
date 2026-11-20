@@ -43,14 +43,14 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 - [x] Comece o download de um vídeo longo em 1080p (ex.: um vídeo de 10 min ou mais).
 - [x] Com a barra em uns 30%, clique no **X** do item → "Cancelado".
 - [x] Espere 2 segundos: na pasta `Helmet DL` **não** sobra `.part`, `.ytdl` nem `.part-Frag…`.
-- [ ] Repita com **Reencode** ligado e cancele durante "Reencodando…": não sobra o arquivo `[H.264]` pela metade **nem o original `.mkv`** (no modo Reencode ele é só intermediário). *(Corrigido depois do 1º teste, que deixava o `.mkv`: testar de novo.)*
-- [ ] Feche o painel no meio de um download: no Gerenciador de Tarefas não sobra `yt-dlp.exe` nem `ffmpeg.exe`, **e** na pasta `Helmet DL` não sobra `.part`. *(Corrigido depois do 1º teste, que deixava um `.f137.mp4.part`: testar de novo.)*
+- [ ] Repita com **Reencode** ligado e cancele durante "Reencodando…": não sobra o arquivo `[H.264]` pela metade **nem o original `.mkv`** (no modo Reencode ele é só intermediário). **Antes**, apague da pasta `Helmet DL` qualquer `.mkv` que tenha sobrado dos testes anteriores e use um vídeo que ainda não esteja na pasta: se o `.mkv` já existia antes do download, ele é mantido de propósito (pode estar em uso no projeto), e o Log mostra "has already been downloaded". *(2º teste: o `.mkv` sobrou — provavelmente era o que tinha ficado do 1º teste. Testar de novo assim; se sobrar, copie o Log.)*
+- [ ] Feche o painel no meio de um download: no Gerenciador de Tarefas não sobra `yt-dlp.exe` nem `ffmpeg.exe`. Se ainda aparecer `.part` na pasta `Helmet DL` logo depois de fechar, **abra o painel de novo**: em ~2 segundos os `.part` somem e o Log diz "Apaguei as sobras do download interrompido…". *(2º teste: os `.part` sobraram — o Premiere fecha o painel sem dar tempo para a limpeza. Agora ela também roda na próxima abertura: testar de novo.)*
 
 ### Arquivo com o mesmo nome já existente
 
 - [x] Baixe um vídeo com **Reencode** (H.264). Baixe o **mesmo** link de novo com Reencode.
 - [x] O segundo reencode vira `… [H.264] (2).mp4`; o primeiro continua intacto.
-- [ ] Baixe um link em **Remux** e depois o **mesmo** link de novo em **Remux**: o segundo diz "Já estava no Project" e nada é baixado de novo. *(Passo corrigido: no 1º teste o Remux veio depois de um Reencode, e o Reencode apaga o original — então baixar de novo era o certo.)*
+- [x] Baixe um link em **Remux** e depois o **mesmo** link de novo em **Remux**: o segundo diz "Já estava no Project" e nada é baixado de novo. *(Passo corrigido: no 1º teste o Remux veio depois de um Reencode, e o Reencode apaga o original — então baixar de novo era o certo.)*
 
 ### Sem internet
 
@@ -64,12 +64,13 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 - [x] **Só áudio**, WAV → importado; toca.
 - [x] **Só vídeo** → importado sem trilha de áudio.
 - [x] **Reencode** H.264 com **GPU** (se tiver placa NVIDIA/AMD/Intel) → o Log mostra o encoder da GPU.
+- [ ] **Velocidade da GPU:** reencode um vídeo de alguns minutos em H.264 com GPU, anote o tempo e a resolução, e copie do Log a linha que começa com `> ffmpeg` e qualquer linha "O encode na GPU falhou". *(No 2º teste a GPU pareceu mais lenta; medido fora do Premiere, o código da 1.0.0 e o da 1.0.1 levam o mesmo tempo — 8,3 s no mesmo arquivo com a NVIDIA.)*
 - [x] **Ambos** → dois arquivos no Project (remux e `[H.264]`).
 - [x] **Baixar só um trecho** (ex.: 10 a 20) → arquivo com ~10 s, nome terminando em `10-20s`.
 - [ ] **Playlist** ligada com um link de playlist pequena → todos os vídeos na fila do yt-dlp, numerados.
 - [x] **Importar numa bin "Helmet DL"** desligado → importa na raiz do Project.
 - [x] Vários links colados de uma vez (separados por espaço) → todos entram na fila, um de cada vez.
 - [ ] **Cookies do navegador** = Firefox (com o Firefox logado no Instagram) → um Reel baixa. No Log aparece só `--cookies-from-browser firefox`, nunca o conteúdo dos cookies.
-- [ ] **Nenhum projeto aberto** (Arquivo › Fechar Projeto, com o painel aberto) → o topo do painel muda para algo como "Salve o projeto para poder baixar" ou "Nenhum projeto aberto", e o Download termina em erro pedindo para salvar/abrir um projeto. *(Passo corrigido: nas versões atuais o Premiere já pede a pasta ao criar o projeto, então "projeto não salvo" não acontece.)*
+- [x] **Nenhum projeto aberto** (Arquivo › Fechar Projeto, com o painel aberto) → o topo do painel muda para algo como "Salve o projeto para poder baixar" ou "Nenhum projeto aberto", e o Download termina em erro pedindo para salvar/abrir um projeto. *(Passo corrigido: nas versões atuais o Premiere já pede a pasta ao criar o projeto, então "projeto não salvo" não acontece.)*
 - [x] Feche e reabra o painel → as opções escolhidas continuam marcadas.
 - [x] Role a lista até esconder o item em andamento → aparece a barra de progresso no rodapé; clicar no título rola até o item.
