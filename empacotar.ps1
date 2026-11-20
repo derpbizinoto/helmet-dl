@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\empacotar.ps1
 #
 # Resultado: dist\HelmetDL-<versao>.zip com
-#   premiere-helmet-dl\  instalar.bat  Add Keys.reg  README.md  CHANGELOG.md
+#   premiere-helmet-dl\  instalar.bat  Add Keys.reg  README.md  README.pt-BR.md  LICENSE  CHANGELOG.md
 # Ficam de fora: .debug, testes, auditoria, .git, temporarios.
 # Para com erro se:
 #   - a versao do manifest, do painel e do host nao forem iguais;
@@ -42,7 +42,7 @@ if (Test-Path $zip) { Remove-Item -Force $zip }
 New-Item -ItemType Directory -Force $stage | Out-Null
 
 Copy-Item -Recurse $ext $stage
-foreach ($f in @("instalar.bat", "Add Keys.reg", "README.md", "CHANGELOG.md")) {
+foreach ($f in @("instalar.bat", "Add Keys.reg", "README.md", "README.pt-BR.md", "LICENSE", "CHANGELOG.md")) {
     $src = Join-Path $root $f
     if (Test-Path $src) { Copy-Item $src $stage }
 }

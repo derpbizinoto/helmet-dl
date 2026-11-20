@@ -1,123 +1,121 @@
 # Helmet DL
 
-Extensão CEP para o Adobe Premiere Pro que baixa vídeos do YouTube, TikTok, X, Instagram, Twitch e de [mais de mil sites suportados pelo yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), salva numa pasta `Helmet DL` ao lado do projeto e importa o arquivo direto na aba **Project** (nunca na timeline).
+**English** · [Português](README.pt-BR.md)
 
-Mesma identidade visual do Helmet Desk, tema Clássico (Violet Terminal com degradês sutis), com Geo em caixa alta no nome e Roboto no resto. O tema Frutiger Aero antigo ficou guardado no histórico do git (commit `3328d34`, pasta `_backup/tema-frutiger-aero`, com um `COMO_RESTAURAR.md`).
+A CEP extension for Adobe Premiere Pro that downloads videos from YouTube, TikTok, X, Instagram, Twitch and [over a thousand sites supported by yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md), saves them in a `Helmet DL` folder next to your project and imports the file straight into the **Project** panel (never into the timeline).
 
-### Créditos das fontes
+Same visual identity as [Helmet Desk](https://github.com/derpbizinoto/helmet-desk), Classic theme (Violet Terminal with subtle gradients), with Geo in caps for the name and Roboto everywhere else.
 
-Embutidas em `client/fonts/` (com o texto da licença), copiadas do Helmet Desk. O painel não acessa a internet para usá-las.
+Free and open source ([MIT license](LICENSE)).
 
-| Fonte | Uso | Autor | Licença |
-|---|---|---|---|
-| [Geo](https://fonts.google.com/specimen/Geo) (Regular) | Nome "HELMET DL" | Ben Weiner | SIL Open Font License 1.1 |
-| [Roboto](https://fonts.google.com/specimen/Roboto) (Regular, Medium, SemiBold, Bold) | Todo o resto | The Roboto Project Authors | SIL Open Font License 1.1 |
+**[⬇ Download the latest version](https://github.com/derpbizinoto/helmet-dl/releases/latest)**: Premiere Pro on Windows.
 
-## Instalação
+## Installation
 
-1. Feche o Premiere.
-2. Rode `instalar.bat` (dois cliques; não precisa de administrador). Ele copia a extensão para `%APPDATA%\Adobe\CEP\extensions\` e libera extensões não assinadas (`PlayerDebugMode`).
-   Alternativa manual: copiar esta pasta para `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\` e rodar `Add Keys.reg`.
-3. No Premiere: **Window › Extensions › Helmet DL**.
+1. Download `HelmetDL-<version>.zip` from the [releases page](https://github.com/derpbizinoto/helmet-dl/releases/latest) and extract it.
+2. Close Premiere.
+3. Run `instalar.bat` (double-click; no administrator needed). It copies the extension to `%APPDATA%\Adobe\CEP\extensions\` and allows unsigned extensions (`PlayerDebugMode`).
+   Manual alternative: copy the `premiere-helmet-dl` folder to `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\` and run `Add Keys.reg`.
+4. In Premiere: **Window › Extensions › Helmet DL**.
 
-Não é preciso instalar Python, yt-dlp ou FFmpeg manualmente. No primeiro download a extensão baixa:
+You don't need to install Python, yt-dlp or FFmpeg yourself. On the first download the extension fetches:
 
-| Ferramenta | Para quê | Origem |
+| Tool | What for | Source |
 |---|---|---|
-| yt-dlp | o download em si (o `.exe` oficial já traz o Python embutido) | github.com/yt-dlp/yt-dlp |
-| FFmpeg + FFprobe | juntar áudio e vídeo, remux, reencode, extrair áudio | github.com/yt-dlp/FFmpeg-Builds |
-| Deno | runtime JavaScript que o yt-dlp exige para ler o YouTube | github.com/denoland/deno |
+| yt-dlp | the download itself (the official `.exe` has Python built in) | github.com/yt-dlp/yt-dlp |
+| FFmpeg + FFprobe | merging audio and video, remux, reencode, audio extraction | github.com/yt-dlp/FFmpeg-Builds |
+| Deno | JavaScript runtime that yt-dlp needs to read YouTube | github.com/denoland/deno |
 
-Tudo fica em `%APPDATA%\Helmet DL\bin`. Se já existir um FFmpeg/Deno/yt-dlp no PATH (winget, scoop, choco, pip), ele é usado. O yt-dlp gerenciado pela extensão é atualizado sozinho uma vez por dia (desligável em **Ferramentas**).
+Everything goes into `%APPDATA%\Helmet DL\bin`. If FFmpeg/Deno/yt-dlp is already on the PATH (winget, scoop, choco, pip), that one is used. The yt-dlp managed by the extension updates itself once a day (can be turned off under **Tools**).
 
-## Como usar
+## How to use
 
-1. Salve o projeto (a pasta `Helmet DL` é criada ao lado do `.prproj`).
-2. Cole o link (ou use o botão de colar) — aparece uma prévia com título, duração e resolução máxima.
-3. Escolha as opções e clique em **Download** (ou Enter). Dá para colar vários links de uma vez, separados por espaço: todos entram na fila.
+1. Save the project (the `Helmet DL` folder is created next to the `.prproj`).
+2. Paste the link (or use the paste button): a preview shows the title, duration and highest resolution.
+3. Pick the options and click **Download** (or press Enter). You can paste several links at once, separated by spaces: they all go into the queue.
 
-### Opções
+### Options
 
-- **Baixar:** Vídeo + áudio, Só vídeo ou Só áudio.
-- **Qualidade:** Original (máxima), 8K, 4K, 2K, 1080p, 720p, 480p, 360p, 240p, 144p. Usa a menor dimensão, então "1080p" também funciona para vídeos em pé (Shorts, TikTok, Reels). Se o vídeo não tiver a qualidade pedida, baixa a mais próxima abaixo.
-- **Processamento:**
-  - *Original* — como o site entrega, sem converter.
-  - *Remux* — troca só o container (MP4, MOV ou MKV), sem perder qualidade.
-  - *Reencode* — converte para H.264, H.265 ou ProRes 422, com frame rate constante (evita dessincronia de vídeos de celular/TikTok/Twitch no Premiere). O arquivo intermediário é apagado.
-  - *Ambos* — faz o remux **e** uma cópia reencodada; os dois vão para o Project.
-  - *Reencodar usando CPU ou GPU* — na GPU o encode usa NVIDIA NVENC, AMD AMF ou Intel Quick Sync (detectado sozinho). É mais rápido e libera a CPU, com arquivo um pouco maior. Se a GPU falhar, o reencode é refeito na CPU. ProRes sempre usa a CPU.
-- **Priorizar formatos do Premiere:** prefere H.264 + AAC quando o site oferece (YouTube até 1080p, normalmente). Acima disso o YouTube só tem VP9/AV1 — use Reencode.
-- **Formato do áudio** (Só áudio): WAV, MP3 320k, M4A ou original.
-- **Importar numa bin "Helmet DL":** desligado, importa na raiz do Project.
-- **Baixar a playlist inteira.**
-- **Baixar só um trecho:** início/fim em segundos ou `hh:mm:ss`. O corte cai no keyframe mais próximo.
-- **Cookies do navegador:** para Instagram, vídeos privados ou com restrição de idade. O Firefox é o mais confiável; o Chrome/Edge precisam estar fechados.
-- **Language / Idioma:** inglês (padrão) ou português. Troca na hora e fica salvo. Itens da lista que já terminaram e o Log continuam no idioma em que foram escritos.
+- **Download:** Video + audio, Video only or Audio only.
+- **Quality:** Original (highest), 8K, 4K, 2K, 1080p, 720p, 480p, 360p, 240p, 144p. It uses the smaller dimension, so "1080p" also works for vertical videos (Shorts, TikTok, Reels). If the video doesn't have the requested quality, it gets the closest one below.
+- **Processing:**
+  - *Original*: as the site delivers it, no conversion.
+  - *Remux*: only changes the container (MP4, MOV or MKV), no quality loss.
+  - *Reencode*: converts to H.264, H.265 or ProRes 422 with a constant frame rate (avoids out-of-sync phone/TikTok/Twitch videos in Premiere). The intermediate file is deleted.
+  - *Both*: does the remux **and** a reencoded copy; both go to the Project panel.
+  - *Reencode using CPU or GPU*: on the GPU, encoding uses NVIDIA NVENC, AMD AMF or Intel Quick Sync (detected automatically). It's faster and frees the CPU, with a slightly larger file. If the GPU fails, the reencode is redone on the CPU. ProRes always uses the CPU.
+- **Prefer Premiere formats:** prefers H.264 + AAC when the site offers it (YouTube up to 1080p, usually). Above that YouTube only has VP9/AV1, so use Reencode.
+- **Audio format** (Audio only): WAV, MP3 320k, M4A or original.
+- **Import into a "Helmet DL" bin:** when off, imports into the root of the Project panel.
+- **Download the whole playlist.**
+- **Download only a section:** start/end in seconds or `hh:mm:ss`. The cut lands on the nearest keyframe.
+- **Browser cookies:** for Instagram, private or age-restricted videos. Firefox is the most reliable; Chrome/Edge must be closed.
+- **Language / Idioma:** English (default) or Portuguese. Switches instantly and is saved. Finished items in the list and the Log stay in the language they were written in.
 
-Se o arquivo final tiver um codec que o Premiere costuma não abrir (VP9, AV1, Opus…), o item fica amarelo na lista com um aviso.
+If the final file has a codec Premiere usually can't open (VP9, AV1, Opus…), the item turns yellow in the list with a warning.
 
-## Estrutura
+## Structure
 
 ```
-instalar.bat              instala para o usuário atual (sem administrador)
-Add Keys.reg              alternativa manual: libera extensões não assinadas (CSXS 9 a 16)
-empacotar.ps1             gera dist\HelmetDL-<versão>.zip para distribuir
-tests/                    testes automáticos (node tests\run-tests.js)
-AUDITORIA.md              auditoria de segurança e limpeza (o que foi achado e corrigido)
-CHANGELOG.md              o que mudou em cada versão
+instalar.bat              installs for the current user (no administrator)
+Add Keys.reg              manual alternative: allows unsigned extensions (CSXS 9 to 16)
+empacotar.ps1             builds dist\HelmetDL-<version>.zip for distribution
+tests/                    automated tests (node tests\run-tests.js)
+AUDITORIA.md              security and cleanup audit (Portuguese)
+CHANGELOG.md              what changed in each version (Portuguese)
 
 premiere-helmet-dl/
-  CSXS/manifest.xml       manifesto CEP (Node habilitado; ver "Segurança")
-  host/index.jsx          ExtendScript: caminho do projeto e importação no Project
-  client/index.html       painel
-  client/css/style.css    identidade Violet Terminal
+  CSXS/manifest.xml       CEP manifest (Node enabled; see "Security")
+  host/index.jsx          ExtendScript: project path and import into the Project panel
+  client/index.html       panel
+  client/css/style.css    Violet Terminal identity
   client/js/
-    config.js             tudo que é configurável: versão, nomes, tempos limite,
-                          endereços das ferramentas; liga/desliga o log de depuração
-    i18n.js               idioma do painel e o dicionário de tradução para o inglês
-    bridge.js             única porta de conversa com o Premiere (ExtendScript)
-    tools.js              encontra/instala/atualiza yt-dlp, FFmpeg e Deno; roda processos
-    downloader.js         argumentos do yt-dlp, progresso, reencode com FFmpeg, nomes de arquivo
-    ui.js                 elementos da tela, opções, configurações salvas, log
-    project.js            projeto aberto e pasta "Helmet DL"
-    preview.js            validação dos links e prévia (título, miniatura, duração)
-    tools-ui.js           card "Ferramentas" e atualização automática do yt-dlp
-    clipboard.js          botão de colar
-    queue.js              fila de downloads e barra de progresso do rodapé
-    main.js               liga os botões aos módulos e inicia o painel
+    config.js             everything configurable: version, names, timeouts,
+                          tool addresses; turns the debug log on/off
+    i18n.js               panel language and the English translation dictionary
+    bridge.js             the only channel to Premiere (ExtendScript)
+    tools.js              finds/installs/updates yt-dlp, FFmpeg and Deno; runs processes
+    downloader.js         yt-dlp arguments, progress, FFmpeg reencode, file names
+    ui.js                 screen elements, options, saved settings, log
+    project.js            open project and "Helmet DL" folder
+    preview.js            link validation and preview (title, thumbnail, duration)
+    tools-ui.js           "Tools" card and automatic yt-dlp update
+    clipboard.js          paste button
+    queue.js              download queue and footer progress bar
+    main.js               wires the buttons to the modules and starts the panel
 ```
 
-Os arquivos de `client/js/` são carregados pelo `index.html` nessa ordem (cada um usa os de cima).
+The files in `client/js/` are loaded by `index.html` in that order (each one uses the ones above it).
 
-### Traduções
+### Translations
 
-O texto continua escrito em português no código (dentro de `tr("…")`) e no `index.html`. A tradução para o inglês fica no dicionário `EN` de `client/js/i18n.js`, com a frase em português como chave. Frase nova na tela precisa de uma entrada nova lá — os testes automáticos falham se faltar alguma.
+The source code is written in Portuguese (inside `tr("…")`) and so is `index.html`. The English translation lives in the `EN` dictionary in `client/js/i18n.js`, keyed by the Portuguese sentence. Any new on-screen sentence needs a new entry there: the automated tests fail if one is missing.
 
-## Segurança
+## Security
 
-O painel roda com o Node.js liberado (`--enable-nodejs` e `--mixed-context` no `manifest.xml`), porque precisa rodar o yt-dlp e o FFmpeg e gravar arquivos. Por isso:
+The panel runs with Node.js enabled (`--enable-nodejs` and `--mixed-context` in `manifest.xml`), because it needs to run yt-dlp and FFmpeg and write files. Because of that:
 
-- **Links:** só `http://` e `https://`. O link vai para o yt-dlp depois de um `--`, então nunca é lido como opção.
-- **Programas:** sempre chamados com a lista de argumentos separada (sem montar comando de texto). Programas do Windows (PowerShell, taskkill, tar, explorer) são chamados pelo caminho completo. Todos têm tempo limite e são encerrados quando o painel fecha.
-- **Ferramentas baixadas:** só do GitHub, por HTTPS, e só são instaladas se o SHA-256 bater com o publicado na página oficial. Se não bater, o arquivo é apagado e a versão anterior continua.
-- **Arquivos:** os nomes são limpos (sem barras, caracteres proibidos ou nomes reservados do Windows), ficam sempre dentro da pasta `Helmet DL` e nunca sobrescrevem um arquivo existente (ganham "(2)", "(3)"…). Downloads cancelados, com erro ou interrompidos pelo fechamento do painel têm as sobras (`.part`, fragmentos, reencode incompleto e, no modo Reencode, o original intermediário) apagadas.
-- **Tela:** textos que vêm da internet (títulos, mensagens) entram como texto, nunca como HTML. Nenhum código é carregado de fora (sem CDN, sem `eval`).
-- **Cookies:** a opção "Cookies do navegador" só passa o **nome** do navegador para o yt-dlp (`--cookies-from-browser firefox`). Quem lê os cookies é o próprio yt-dlp, na hora; a extensão nunca vê, grava nem registra o conteúdo deles.
-- **Assinatura:** a extensão ainda não é assinada, por isso o instalador liga o `PlayerDebugMode` (que permite extensões não assinadas). Assinar com certificado é uma pendência (decisão D2 da auditoria).
+- **Links:** only `http://` and `https://`. The link is passed to yt-dlp after a `--`, so it's never read as an option.
+- **Programs:** always called with a separate argument list (no command strings are built). Windows programs (PowerShell, taskkill, tar, explorer) are called by their full path. All of them have a timeout and are terminated when the panel closes.
+- **Downloaded tools:** only from GitHub, over HTTPS, and only installed if the SHA-256 matches the one published on the official page. If it doesn't match, the file is deleted and the previous version stays.
+- **Files:** names are sanitized (no slashes, forbidden characters or reserved Windows names), always stay inside the `Helmet DL` folder and never overwrite an existing file (they get "(2)", "(3)"…). Downloads that are canceled, fail or are interrupted by closing the panel have their leftovers (`.part`, fragments, incomplete reencode and, in Reencode mode, the intermediate original) deleted.
+- **Screen:** text coming from the internet (titles, messages) is inserted as text, never as HTML. No code is loaded from outside (no CDN, no `eval`).
+- **Cookies:** the "Browser cookies" option only passes the browser's **name** to yt-dlp (`--cookies-from-browser firefox`). yt-dlp itself reads the cookies at that moment; the extension never sees, stores or logs their contents.
+- **Signing:** the extension isn't signed yet, so the installer turns on `PlayerDebugMode` (which allows unsigned extensions). Signing with a certificate is still pending.
 
-## Desenvolvimento
+## Development
 
-### Testes
+### Tests
 
 ```
 node tests\run-tests.js
 ```
 
-Testa sem Premiere e sem internet: limpeza de nomes, links aceitos/recusados, conferência de SHA-256, argumentos do yt-dlp, mensagens de erro e a conversa com o Premiere (sobre uma imitação da API em `tests/premiere-mock.js`). O que só dá para ver no Premiere precisa de teste manual: o roteiro usado na 1.1.0 continua no histórico do git (`git show dd621c3:TESTES.md`).
+Runs without Premiere and without internet: file name sanitizing, accepted/rejected links, SHA-256 checks, yt-dlp arguments, error messages and the conversation with Premiere (on top of a fake API in `tests/premiere-mock.js`). What can only be seen in Premiere needs manual testing: the checklist used for 1.1.0 is still in the git history (`git show dd621c3:TESTES.md`, Portuguese).
 
-### Depuração
+### Debugging
 
-O arquivo `.debug` **não** faz parte do repositório nem do pacote (ele abre uma porta de depuração no computador). Na máquina de desenvolvimento, crie `premiere-helmet-dl\.debug` com:
+The `.debug` file is **not** part of the repository or the package (it opens a debugging port on the computer). On the development machine, create `premiere-helmet-dl\.debug` with:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -130,13 +128,26 @@ O arquivo `.debug` **não** faz parte do repositório nem do pacote (ele abre um
 </ExtensionList>
 ```
 
-Com o painel aberto, acesse `http://localhost:8098` no Chrome. Para mensagens técnicas extras, mude `DEBUG: false` para `true` em `client/js/config.js` (nunca distribua assim). O card **Log** do painel mostra os comandos exatos do yt-dlp/FFmpeg e as saídas.
+With the panel open, go to `http://localhost:8098` in Chrome. For extra technical messages, change `DEBUG: false` to `true` in `client/js/config.js` (never distribute it like that). The panel's **Log** card shows the exact yt-dlp/FFmpeg commands and their output.
 
-Para ver o visual fora do Premiere, sirva a pasta `client` num servidor local (por exemplo `py -3 -m http.server` dentro dela) e abra `index.html?demo`: a fila aparece preenchida com exemplos.
+To see the UI outside Premiere, serve the `client` folder with a local server (for example `py -3 -m http.server` inside it) and open `index.html?demo`: the queue shows up filled with examples.
 
-### Nova versão
+### New version
 
-1. Mude a versão nos três lugares: `CSXS/manifest.xml` (`ExtensionBundleVersion` e `Extension Version`), `client/js/config.js` (`CLIENT_VERSION`) e `host/index.jsx` (`HDL_HOST_VERSION`).
-2. Anote no `CHANGELOG.md`.
-3. Rode `node tests\run-tests.js` e teste no Premiere (roteiro da 1.1.0: `git show dd621c3:TESTES.md`).
-4. Rode `powershell -ExecutionPolicy Bypass -File empacotar.ps1`. Ele confere se as três versões batem, monta `dist\HelmetDL-<versão>.zip` só com o necessário e **para com erro** se achar `.debug`, certificado, chave ou arquivo de cookies.
+1. Change the version in three places: `CSXS/manifest.xml` (`ExtensionBundleVersion` and `Extension Version`), `client/js/config.js` (`CLIENT_VERSION`) and `host/index.jsx` (`HDL_HOST_VERSION`).
+2. Note it in `CHANGELOG.md`.
+3. Run `node tests\run-tests.js` and test in Premiere.
+4. Run `powershell -ExecutionPolicy Bypass -File empacotar.ps1`. It checks that the three versions match, builds `dist\HelmetDL-<version>.zip` with only what's needed and **stops with an error** if it finds a `.debug`, certificate, key or cookies file.
+
+## Credits
+
+Embedded in `client/fonts/` (with the license text), copied from Helmet Desk. The panel doesn't go online to use them.
+
+| Font | Use | Author | License |
+|---|---|---|---|
+| [Geo](https://fonts.google.com/specimen/Geo) (Regular) | "HELMET DL" name | Ben Weiner | SIL Open Font License 1.1 |
+| [Roboto](https://fonts.google.com/specimen/Roboto) (Regular, Medium, SemiBold, Bold) | Everything else | The Roboto Project Authors | SIL Open Font License 1.1 |
+
+## License
+
+[MIT](LICENSE). The Geo and Roboto fonts have their own license (SIL Open Font License 1.1, see `client/fonts/`). yt-dlp, FFmpeg and Deno are not bundled: they're downloaded from the official projects and follow their own licenses.
