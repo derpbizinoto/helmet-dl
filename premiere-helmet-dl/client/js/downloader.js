@@ -11,6 +11,7 @@ var HDLDownloader = (function () {
     var os = require("os");
 
     var T = HDLTools;
+    var tr = HDLI18n.t;
 
     // Codecs que o Premiere abre sem dor de cabeça.
     var PREMIERE_VCODECS = ["h264", "hevc", "prores", "dnxhd", "mpeg2video", "mpeg4", "mjpeg", "cfhd"];
@@ -125,7 +126,7 @@ var HDLDownloader = (function () {
 
     // Erro de "cancelado pelo usuário" (o painel o reconhece por e.canceled).
     function canceledError() {
-        var e = new Error("Cancelado");
+        var e = new Error(tr("Cancelado"));
         e.canceled = true;
         return e;
     }
@@ -178,7 +179,7 @@ var HDLDownloader = (function () {
             var cand = base + " (" + n + ")" + ext;
             if (!fs.existsSync(cand)) return cand;
         }
-        throw new Error("Arquivos demais com o mesmo nome: " + p);
+        throw new Error(tr("Arquivos demais com o mesmo nome: {0}", p));
     }
 
     function ytdlpSupportsJsRuntimes() {
@@ -200,7 +201,7 @@ var HDLDownloader = (function () {
 
     function ytdlpCmd() {
         var y = T.state.ytdlp;
-        if (!y) throw new Error("yt-dlp não encontrado.");
+        if (!y) throw new Error(tr("yt-dlp não encontrado."));
         return { cmd: y.cmd, base: y.base || [] };
     }
 
@@ -234,11 +235,11 @@ var HDLDownloader = (function () {
             child.on("error", reject);
             child.on("close", function (code) {
                 if (code !== 0) {
-                    reject(new Error(cleanError(err) || ("yt-dlp saiu com código " + code)));
+                    reject(new Error(cleanError(err) || tr("yt-dlp saiu com código {0}", code)));
                     return;
                 }
                 try { resolve(summarizeInfo(JSON.parse(out))); }
-                catch (e) { reject(new Error("Resposta inesperada do yt-dlp.")); }
+                catch (e) { reject(new Error(tr("Resposta inesperada do yt-dlp."))); }
             });
         });
         return { promise: promise, cancel: function () { T.killTree(child); } };
@@ -258,7 +259,7 @@ var HDLDownloader = (function () {
             isPlaylist: isPlaylist,
             count: isPlaylist ? (info.playlist_count || (info.entries || []).length) : 1,
             id: info.id || "",
-            title: info.title || info.fulltitle || "(sem título)",
+            title: info.title || info.fulltitle || tr("(sem título)"),
             uploader: info.uploader || info.channel || info.creator || "",
             site: info.extractor_key || info.ie_key || "",
             duration: info.duration || 0,
@@ -277,17 +278,17 @@ var HDLDownloader = (function () {
     // Traduz os erros mais comuns para algo acionável.
     function friendlyError(msg) {
         var m = String(msg || "");
-        if (T.isNetworkError(m)) return T.NETWORK_MESSAGE;
+        if (T.isNetworkError(m)) return tr(T.NETWORK_MESSAGE);
         // "age" sozinho também casaria com "webpage"/"message"; aqui é só restrição de idade
         if (/Sign in to confirm|\bage\b|age[- ]restricted|login required|log in|rate-limit|private/i.test(m)) {
-            return m + " — tente escolher um navegador em \"Cookies do navegador\" (onde você está logado).";
+            return tr("{0} — tente escolher um navegador em \"Cookies do navegador\" (onde você está logado).", m);
         }
         if (/Could not copy .* cookie database|Failed to decrypt|DPAPI/i.test(m)) {
-            return "Não deu para ler os cookies do navegador. Feche o navegador e tente de novo, ou use o Firefox. (" + m + ")";
+            return tr("Não deu para ler os cookies do navegador. Feche o navegador e tente de novo, ou use o Firefox. ({0})", m);
         }
-        if (/Unsupported URL/i.test(m)) return "Este site não é suportado (o yt-dlp não sabe baixar desse endereço).";
-        if (/ffmpeg|ffprobe/i.test(m) && /not found|not installed/i.test(m)) return "FFmpeg não encontrado — instale em Ferramentas.";
-        if (/Requested format is not available/i.test(m)) return "O formato pedido não existe para esse vídeo. Tente outra qualidade.";
+        if (/Unsupported URL/i.test(m)) return tr("Este site não é suportado (o yt-dlp não sabe baixar desse endereço).");
+        if (/ffmpeg|ffprobe/i.test(m) && /not found|not installed/i.test(m)) return tr("FFmpeg não encontrado — instale em Ferramentas.");
+        if (/Requested format is not available/i.test(m)) return tr("O formato pedido não existe para esse vídeo. Tente outra qualidade.");
         return m;
     }
 
@@ -393,7 +394,7 @@ var HDLDownloader = (function () {
                 if (eta) nums.push(fmtEta(eta));
                 // Em "Vídeo + áudio" o yt-dlp baixa o vídeo e depois o áudio (2ª parte).
                 var audioNow = opts.content === "audio" || (opts.content === "both" && part > 1);
-                var label = audioNow ? "Baixando áudio" : "Baixando vídeo";
+                var label = audioNow ? tr("Baixando áudio") : tr("Baixando vídeo");
                 if (item) label += " · " + item;
                 phase(label, pct, nums.join(" · "));
                 return;
@@ -404,18 +405,18 @@ var HDLDownloader = (function () {
                 part++;
                 if (isInside(outDir, m[1].trim())) created.push(m[1].trim());
             }
-            else if ((m = line.match(/^\[download\] Downloading item (\d+) of (\d+)/))) { item = m[1] + " de " + m[2]; part = 0; }
+            else if ((m = line.match(/^\[download\] Downloading item (\d+) of (\d+)/))) { item = tr("{0} de {1}", m[1], m[2]); part = 0; }
             else if (/has already been downloaded/.test(line)) {
                 alreadyHad = true;
                 var had = line.match(/^\[download\]\s+(.+?)\s+has already been downloaded/);
                 if (had) existing.push(had[1]);
-                phase("Já estava baixado", 1);
+                phase(tr("Já estava baixado"), 1);
             }
-            else if (/^\[Merger\]/.test(line)) phase("Juntando áudio e vídeo…", null);
-            else if (/^\[VideoRemuxer\]/.test(line)) phase("Fazendo remux…", null);
-            else if (/^\[ExtractAudio\]/.test(line)) phase("Convertendo áudio…", null);
-            else if (/^\[Fixup/.test(line)) phase("Corrigindo o arquivo…", null);
-            else if (/^\[(youtube|info)\]/i.test(line) && part === 0) phase("Lendo informações…", null);
+            else if (/^\[Merger\]/.test(line)) phase(tr("Juntando áudio e vídeo…"), null);
+            else if (/^\[VideoRemuxer\]/.test(line)) phase(tr("Fazendo remux…"), null);
+            else if (/^\[ExtractAudio\]/.test(line)) phase(tr("Convertendo áudio…"), null);
+            else if (/^\[Fixup/.test(line)) phase(tr("Corrigindo o arquivo…"), null);
+            else if (/^\[(youtube|info)\]/i.test(line) && part === 0) phase(tr("Lendo informações…"), null);
             if (/^ERROR:/.test(line)) errLines.push(line);
         }
 
@@ -431,18 +432,18 @@ var HDLDownloader = (function () {
                 // pode apagar esses arquivos depois)
                 files = files.filter(function (f) {
                     if (isInside(outDir, f)) return true;
-                    cb.onLog("Ignorado (fora da pasta " + outDir + "): " + f);
+                    cb.onLog(tr("Ignorado (fora da pasta {0}): {1}", outDir, f));
                     return false;
                 });
                 Array.prototype.push.apply(finished, files);
 
                 if (canceled) { reject(canceledError()); return; }
                 if (code !== 0 && !files.length) {
-                    reject(new Error(friendlyError(cleanError(errLines.join("\n"))) || ("yt-dlp saiu com código " + code)));
+                    reject(new Error(friendlyError(cleanError(errLines.join("\n"))) || tr("yt-dlp saiu com código {0}", code)));
                     return;
                 }
                 if (!files.length) {
-                    reject(new Error("O yt-dlp terminou, mas não informou o arquivo baixado."));
+                    reject(new Error(tr("O yt-dlp terminou, mas não informou o arquivo baixado.")));
                     return;
                 }
                 resolve({ files: files, alreadyHad: alreadyHad, partialError: code !== 0 ? cleanError(errLines.join("\n")) : null });
@@ -517,7 +518,7 @@ var HDLDownloader = (function () {
     // Roda o ffmpeg com -progress e chama onProgress(fração).
     function runFfmpeg(args, duration, onProgress, onLog) {
         var ff = T.state.ffmpeg;
-        if (!ff) throw new Error("FFmpeg não encontrado.");
+        if (!ff) throw new Error(tr("FFmpeg não encontrado."));
         // -n: nunca grava por cima de um arquivo existente (os nomes de saída já são únicos)
         var full = ["-hide_banner", "-n", "-nostats", "-progress", "pipe:1"].concat(args);
         onLog(commandForLog("ffmpeg", full));
@@ -538,7 +539,7 @@ var HDLDownloader = (function () {
                 if (canceled) { reject(canceledError()); return; }
                 if (code !== 0) {
                     tail.forEach(onLog);
-                    reject(new Error("O FFmpeg falhou (código " + code + "): " + (tail[tail.length - 1] || "")));
+                    reject(new Error(tr("O FFmpeg falhou (código {0}): {1}", code, tail[tail.length - 1] || "")));
                     return;
                 }
                 resolve();
@@ -589,10 +590,10 @@ var HDLDownloader = (function () {
     function compatWarning(info) {
         if (!info) return null;
         var issues = [];
-        if (info.vcodec && PREMIERE_VCODECS.indexOf(info.vcodec) < 0) issues.push("vídeo em " + info.vcodec.toUpperCase());
-        if (info.acodec && PREMIERE_ACODECS.indexOf(info.acodec) < 0) issues.push("áudio em " + info.acodec.toUpperCase());
+        if (info.vcodec && PREMIERE_VCODECS.indexOf(info.vcodec) < 0) issues.push(tr("vídeo em {0}", info.vcodec.toUpperCase()));
+        if (info.acodec && PREMIERE_ACODECS.indexOf(info.acodec) < 0) issues.push(tr("áudio em {0}", info.acodec.toUpperCase()));
         if (!issues.length) return null;
-        return "Veio com " + issues.join(" e ") + ", que o Premiere pode não abrir. Se der problema, baixe de novo com Reencode.";
+        return tr("Veio com {0}, que o Premiere pode não abrir. Se der problema, baixe de novo com Reencode.", issues.join(tr(" e ")));
     }
 
     return {

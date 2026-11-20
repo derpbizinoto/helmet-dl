@@ -27,6 +27,7 @@ var HDLTools = (function () {
     var binDir = path.join(dataDir, "bin");
 
     var TOOLS = HDL_CONFIG.TOOLS;
+    var tr = HDLI18n.t;
     var TIMEOUT = HDL_CONFIG.TIMEOUT;
 
     // Programas do sistema pelo caminho completo. Chamados só pelo nome, o Windows
@@ -162,7 +163,7 @@ var HDLTools = (function () {
                 if (done) return;
                 killTree(child);
                 done = true;
-                resolve({ code: -2, stdout: out, stderr: err + "\n(tempo esgotado)" });
+                resolve({ code: -2, stdout: out, stderr: err + "\n" + tr("(tempo esgotado)") });
             }, timeoutMs || TIMEOUT.toolVersion);
             child.stdout.setEncoding("utf8");
             child.stderr.setEncoding("utf8");
@@ -249,7 +250,7 @@ var HDLTools = (function () {
     }
 
     function refuseUrl(url) {
-        return Promise.reject(new Error("Download recusado: endereço fora do GitHub (" + url + ")."));
+        return Promise.reject(new Error(tr("Download recusado: endereço fora do GitHub ({0}).", url)));
     }
 
     // Os arquivos do GitHub ficam num CDN com vários IPs, e em algumas redes parte
@@ -281,7 +282,7 @@ var HDLTools = (function () {
                 resolve(res);
             });
             var timer = setTimeout(function () {
-                if (!connected) req.destroy(new Error("Tempo esgotado conectando em " + (addr ? addr.address : url)));
+                if (!connected) req.destroy(new Error(tr("Tempo esgotado conectando em {0}", addr ? addr.address : url)));
             }, TIMEOUT.connect);
             req.on("error", function (e) {
                 clearTimeout(timer);
@@ -294,7 +295,7 @@ var HDLTools = (function () {
     // GET que tenta cada IP do servidor e segue redirecionamentos. Resolve com a resposta.
     function openGet(url, headers, redirects) {
         redirects = redirects || 0;
-        if (redirects > 8) return Promise.reject(new Error("Redirecionamentos demais em " + url));
+        if (redirects > 8) return Promise.reject(new Error(tr("Redirecionamentos demais em {0}", url)));
         if (!isAllowedUrl(url)) return refuseUrl(url);
         var host = new URL(url).hostname;
         return lookupAll(host).then(function (addrs) {
@@ -311,7 +312,7 @@ var HDLTools = (function () {
                 });
             }, Promise.resolve(null)).then(function (res) {
                 if (!res) {
-                    var err = lastErr || new Error("Sem conexão com " + host);
+                    var err = lastErr || new Error(tr("Sem conexão com {0}", host));
                     err.phase = "connect";
                     throw err;
                 }
@@ -335,7 +336,7 @@ var HDLTools = (function () {
             return new Promise(function (resolve, reject) {
                 if (res.statusCode !== 200) {
                     res.resume();
-                    reject(new Error("HTTP " + res.statusCode + " ao baixar " + url));
+                    reject(new Error(tr("HTTP {0} ao baixar {1}", res.statusCode, url)));
                     return;
                 }
                 var total = parseInt(res.headers["content-length"] || "0", 10);
@@ -351,20 +352,20 @@ var HDLTools = (function () {
                     reject(e);
                 }
                 if (res.socket) {
-                    res.socket.setTimeout(TIMEOUT.stalled, function () { res.destroy(new Error("O download parou de responder.")); });
+                    res.socket.setTimeout(TIMEOUT.stalled, function () { res.destroy(new Error(tr("O download parou de responder."))); });
                 }
                 res.on("data", function (chunk) {
                     got += chunk.length;
                     if (onProgress) onProgress(got, total);
                 });
-                res.on("aborted", function () { fail(new Error("A conexão caiu no meio do download.")); });
+                res.on("aborted", function () { fail(new Error(tr("A conexão caiu no meio do download."))); });
                 res.on("error", fail);
                 file.on("error", fail);
                 res.pipe(file);
                 file.on("finish", function () {
                     file.close(function () {
                         if (failed) return;
-                        if (total && got < total) { fail(new Error("Download incompleto.")); return; }
+                        if (total && got < total) { fail(new Error(tr("Download incompleto."))); return; }
                         try { resolve(finishTmp(tmp, dest)); } catch (e) { reject(e); }
                     });
                 });
@@ -383,7 +384,7 @@ var HDLTools = (function () {
         return runPowerShell(script, { HDL_URL: url, HDL_OUT: tmp }, TIMEOUT.psDownload).then(function (r) {
             if (r.code !== 0 || !isFile(tmp)) {
                 rmrf(tmp);
-                throw new Error("Não foi possível baixar " + url + " (" + (firstLine(r.stderr) || "PowerShell falhou") + ")");
+                throw new Error(tr("Não foi possível baixar {0} ({1})", url, firstLine(r.stderr) || tr("PowerShell falhou")));
             }
             return finishTmp(tmp, dest);
         });
@@ -391,17 +392,18 @@ var HDLTools = (function () {
 
     // Reconhece falha de rede nas mensagens do Node, do PowerShell (em inglês ou
     // português) e do yt-dlp (Python), para mostrar um aviso claro em vez do erro técnico.
-    var NETWORK_MESSAGE = "Sem conexão com a internet (ou o site não respondeu). Confira a conexão e tente de novo.";
+    // (texto em português; quem mostra passa por tr())
+    var NETWORK_MESSAGE = HDLI18n.N("Sem conexão com a internet (ou o site não respondeu). Confira a conexão e tente de novo.");
 
     function isNetworkError(msg) {
-        return /ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH|getaddrinfo|Errno 1100[0-9]|Errno -?[23]\b|WinError 100(5[01]|6[015])|Failed to establish a new connection|Unable to connect to proxy|Nenhuma conexão pôde ser feita|Name or service not known|Temporary failure in name resolution|Failed to resolve|Network is unreachable|timed out|Connection (refused|reset|aborted)|remote name could not be resolved|nome remoto n.o p.de ser resolvido|Unable to connect to the remote server|Impossível conectar-se ao servidor remoto|operation has timed out|tempo limite da operação|Tempo esgotado conectando|Sem conexão com|parou de responder|conexão caiu/i.test(String(msg || ""));
+        return /ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH|getaddrinfo|Errno 1100[0-9]|Errno -?[23]\b|WinError 100(5[01]|6[015])|Failed to establish a new connection|Unable to connect to proxy|Nenhuma conexão pôde ser feita|Name or service not known|Temporary failure in name resolution|Failed to resolve|Network is unreachable|timed out|Connection (refused|reset|aborted)|remote name could not be resolved|nome remoto n.o p.de ser resolvido|Unable to connect to the remote server|Impossível conectar-se ao servidor remoto|operation has timed out|tempo limite da operação|Tempo esgotado conectando|Sem conexão com|parou de responder|conexão caiu|No connection to|stopped responding|connection dropped/i.test(String(msg || ""));
     }
 
     // onProgress(baixado, total). baixado = -1 indica o modo alternativo (sem progresso).
     function downloadFile(url, dest, onProgress) {
         if (!isAllowedUrl(url)) return refuseUrl(url);
         return downloadFileNode(url, dest, onProgress).catch(function (e) {
-            var network = e.phase === "connect" || /ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENOTFOUND|caiu|parou|incompleto/i.test(e.message);
+            var network = e.phase === "connect" || /ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ENOTFOUND|caiu|parou|incompleto|dropped|stopped responding|incomplete/i.test(e.message);
             if (!isWin || !network) throw e;
             if (onProgress) onProgress(-1, 0);
             return downloadFilePowerShell(url, dest).catch(function (e2) {
@@ -453,17 +455,14 @@ var HDLTools = (function () {
             .then(function () {
                 expected = expectedHash(fs.readFileSync(sums, "utf8"), spec.asset, spec.singleHash);
                 if (!expected) {
-                    throw new Error("Não encontrei a impressão digital (SHA-256) de " + spec.asset +
-                        " na página oficial. Por segurança, a instalação foi cancelada. Tente de novo mais tarde.");
+                    throw new Error(tr("Não encontrei a impressão digital (SHA-256) de {0} na página oficial. Por segurança, a instalação foi cancelada. Tente de novo mais tarde.", spec.asset));
                 }
                 return downloadFile(spec.url, staging, onProgress);
             })
             .then(function () { return sha256File(staging); })
             .then(function (actual) {
                 if (actual.toLowerCase() !== expected) {
-                    throw new Error("O arquivo baixado (" + spec.asset + ") não confere com a impressão digital " +
-                        "(SHA-256) publicada e foi apagado por segurança. Isso pode acontecer se uma versão nova " +
-                        "saiu durante o download — tente de novo em alguns minutos.");
+                    throw new Error(tr("O arquivo baixado ({0}) não confere com a impressão digital (SHA-256) publicada e foi apagado por segurança. Isso pode acontecer se uma versão nova saiu durante o download — tente de novo em alguns minutos.", spec.asset));
                 }
                 finishTmp(staging, dest);
                 rmrf(sums);
@@ -487,7 +486,7 @@ var HDLTools = (function () {
             return r.code === 0 ? r : viaPowerShell();
         });
         function check(r) {
-            if (r.code !== 0) throw new Error("Falha ao extrair " + path.basename(zip) + ": " + (r.stderr || r.stdout));
+            if (r.code !== 0) throw new Error(tr("Falha ao extrair {0}: {1}", path.basename(zip), r.stderr || r.stdout));
             return r;
         }
     }
@@ -587,7 +586,7 @@ var HDLTools = (function () {
             .then(function () {
                 exeNames.forEach(function (name) {
                     var found = findFileRecursive(tmp, name, depth);
-                    if (!found) throw new Error(name + " não encontrado no pacote baixado");
+                    if (!found) throw new Error(tr("{0} não encontrado no pacote baixado", name));
                     var dest = path.join(binDir, name);
                     fs.copyFileSync(found, dest);
                     if (!isWin) fs.chmodSync(dest, 0o755);
@@ -598,7 +597,7 @@ var HDLTools = (function () {
 
     function installFfmpeg(onProgress) {
         if (!isWin) {
-            return Promise.reject(new Error("No macOS, instale o FFmpeg pelo Homebrew: brew install ffmpeg"));
+            return Promise.reject(new Error(tr("No macOS, instale o FFmpeg pelo Homebrew: brew install ffmpeg")));
         }
         return installZipTool("ffmpeg", ["ffmpeg.exe", "ffprobe.exe"], 4, onProgress).then(detectFfmpeg);
     }
@@ -615,12 +614,12 @@ var HDLTools = (function () {
         if (y.source === "python") {
             return runCapture(y.cmd, y.base.slice(0, -2).concat(["-m", "pip", "install", "-U", "yt-dlp[default]"]), TIMEOUT.update)
                 .then(function (r) {
-                    if (r.code !== 0) throw new Error(firstLine(r.stderr) || "pip falhou");
+                    if (r.code !== 0) throw new Error(firstLine(r.stderr) || tr("pip falhou"));
                     return detectYtdlp();
                 });
         }
         return runCapture(y.cmd, ["-U"], TIMEOUT.update).then(function (r) {
-            if (r.code !== 0) throw new Error(firstLine(r.stderr) || firstLine(r.stdout) || "yt-dlp -U falhou");
+            if (r.code !== 0) throw new Error(firstLine(r.stderr) || firstLine(r.stdout) || tr("yt-dlp -U falhou"));
             return detectYtdlp();
         });
     }

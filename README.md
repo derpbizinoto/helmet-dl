@@ -52,6 +52,7 @@ Tudo fica em `%APPDATA%\Helmet DL\bin`. Se já existir um FFmpeg/Deno/yt-dlp no 
 - **Baixar a playlist inteira.**
 - **Baixar só um trecho:** início/fim em segundos ou `hh:mm:ss`. O corte cai no keyframe mais próximo.
 - **Cookies do navegador:** para Instagram, vídeos privados ou com restrição de idade. O Firefox é o mais confiável; o Chrome/Edge precisam estar fechados.
+- **Language / Idioma:** inglês (padrão) ou português. Troca na hora e fica salvo. Itens da lista que já terminaram e o Log continuam no idioma em que foram escritos.
 
 Se o arquivo final tiver um codec que o Premiere costuma não abrir (VP9, AV1, Opus…), o item fica amarelo na lista com um aviso.
 
@@ -73,6 +74,7 @@ premiere-helmet-dl/
   client/js/
     config.js             tudo que é configurável: versão, nomes, tempos limite,
                           endereços das ferramentas; liga/desliga o log de depuração
+    i18n.js               idioma do painel e o dicionário de tradução para o inglês
     bridge.js             única porta de conversa com o Premiere (ExtendScript)
     tools.js              encontra/instala/atualiza yt-dlp, FFmpeg e Deno; roda processos
     downloader.js         argumentos do yt-dlp, progresso, reencode com FFmpeg, nomes de arquivo
@@ -86,6 +88,10 @@ premiere-helmet-dl/
 ```
 
 Os arquivos de `client/js/` são carregados pelo `index.html` nessa ordem (cada um usa os de cima).
+
+### Traduções
+
+O texto continua escrito em português no código (dentro de `tr("…")`) e no `index.html`. A tradução para o inglês fica no dicionário `EN` de `client/js/i18n.js`, com a frase em português como chave. Frase nova na tela precisa de uma entrada nova lá — os testes automáticos falham se faltar alguma.
 
 ## Segurança
 

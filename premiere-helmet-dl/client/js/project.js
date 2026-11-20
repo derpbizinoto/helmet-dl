@@ -5,6 +5,7 @@
 var HDLProject = (function () {
     var C = HDL_CONFIG;
     var U = HDLUi;
+    var tr = HDLI18n.t;
     var els = U.els;
     var nodePath = U.hasNode ? require("path") : null;
 
@@ -18,24 +19,24 @@ var HDLProject = (function () {
     // Pergunta ao Premiere qual projeto está aberto e atualiza o cabeçalho.
     function refresh() {
         if (!HDLBridge.available) {
-            els.projectInfo.textContent = "Prévia fora do Premiere";
+            els.projectInfo.textContent = tr("Prévia fora do Premiere");
             return Promise.resolve(project);
         }
         return HDLBridge.call("hdl_getProjectInfo").then(function (d) {
             project.path = d.path || "";
             project.name = d.name || "";
             if (project.path) {
-                els.projectInfo.textContent = "Salvando em " + project.name.replace(/\.prproj$/i, "") + " › " + C.FOLDER_NAME;
-                els.projectInfo.title = helmetDir() + "\n(clique para atualizar)";
+                els.projectInfo.textContent = tr("Salvando em {0} › {1}", project.name.replace(/\.prproj$/i, ""), C.FOLDER_NAME);
+                els.projectInfo.title = helmetDir() + "\n" + tr("(clique para atualizar)");
             } else {
-                els.projectInfo.textContent = "Salve o projeto para poder baixar";
-                els.projectInfo.title = "A pasta Helmet DL é criada ao lado do arquivo .prproj";
+                els.projectInfo.textContent = tr("Salve o projeto para poder baixar");
+                els.projectInfo.title = tr("A pasta Helmet DL é criada ao lado do arquivo .prproj");
             }
             return project;
         }, function (e) {
             project.path = "";
-            els.projectInfo.textContent = "Nenhum projeto aberto";
-            U.appendLog("Projeto: " + e.message);
+            els.projectInfo.textContent = tr("Nenhum projeto aberto");
+            U.appendLog(tr("Projeto: {0}", e.message));
             return project;
         });
     }
@@ -46,7 +47,7 @@ var HDLProject = (function () {
         try {
             HDLTools.reveal(target, select);
         } catch (e) {
-            U.appendLog("Não foi possível abrir a pasta: " + e.message);
+            U.appendLog(tr("Não foi possível abrir a pasta: {0}", e.message));
         }
     }
 
@@ -55,7 +56,7 @@ var HDLProject = (function () {
         if (!U.hasNode) return;
         refresh().then(function () {
             if (!project.path) {
-                U.setStatus("Salve o projeto primeiro — a pasta " + C.FOLDER_NAME + " fica ao lado do .prproj.", "warning");
+                U.setStatus(tr("Salve o projeto primeiro — a pasta {0} fica ao lado do .prproj.", C.FOLDER_NAME), "warning");
                 return;
             }
             HDLTools.ensureDir(helmetDir());

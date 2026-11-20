@@ -5,6 +5,7 @@
 
 var HDLUi = (function () {
     var C = HDL_CONFIG;
+    var tr = HDLI18n.t, N = HDLI18n.N;
     var hasNode = typeof require === "function" && !!window.HDLTools && !!window.HDLDownloader;
 
     function $(id) { return document.getElementById(id); }
@@ -44,6 +45,7 @@ var HDLUi = (function () {
         trimStart: $("trimStart"),
         trimEnd: $("trimEnd"),
         cookiesSelect: $("cookiesSelect"),
+        langSelect: $("langSelect"),
         queue: $("queue"),
         btnClearDone: $("btnClearDone"),
         toolsDetails: $("toolsDetails"),
@@ -109,10 +111,10 @@ var HDLUi = (function () {
     }
 
     var MODE_HINTS = {
-        original: "Baixa do jeito que o site entrega, sem converter. É o mais rápido, mas pode vir em WebM/VP9/AV1.",
-        remux: "Só troca o container, sem perder qualidade. Rápido.",
-        reencode: "Converte para um codec do Premiere com frame rate constante. Mais lento, mas abre liso.",
-        both: "Gera os dois: o arquivo com remux e uma cópia reencodada. Os dois vão para o Project."
+        original: N("Baixa do jeito que o site entrega, sem converter. É o mais rápido, mas pode vir em WebM/VP9/AV1."),
+        remux: N("Só troca o container, sem perder qualidade. Rápido."),
+        reencode: N("Converte para um codec do Premiere com frame rate constante. Mais lento, mas abre liso."),
+        both: N("Gera os dois: o arquivo com remux e uma cópia reencodada. Os dois vão para o Project.")
     };
 
     function readOptions() {
@@ -175,7 +177,7 @@ var HDLUi = (function () {
         var reenc = o.mode === "reencode" || o.mode === "both";
         els.codecRow.style.display = reenc ? "" : "none";
         els.encoderRow.style.display = reenc ? "" : "none";
-        els.modeHint.textContent = MODE_HINTS[o.mode] || "";
+        els.modeHint.textContent = MODE_HINTS[o.mode] ? tr(MODE_HINTS[o.mode]) : "";
         els.trimRow.style.display = o.trim ? "" : "none";
         updateEncoderHint();
         HDLPreview.updateQualityNote();
@@ -199,19 +201,19 @@ var HDLUi = (function () {
             return;
         }
         if (o.codec === "prores") {
-            showEncoderHint("O ProRes não tem encoder de GPU no FFmpeg — esse vai usar a CPU.");
+            showEncoderHint(tr("O ProRes não tem encoder de GPU no FFmpeg — esse vai usar a CPU."));
             return;
         }
         if (!hasNode || !HDLTools.state.ffmpeg) {
-            showEncoderHint("A GPU é detectada quando o FFmpeg estiver instalado.");
+            showEncoderHint(tr("A GPU é detectada quando o FFmpeg estiver instalado."));
             return;
         }
-        showEncoderHint("Procurando a GPU…");
+        showEncoderHint(tr("Procurando a GPU…"));
         HDLDownloader.detectGpu().then(function (gpu) {
             if (seq !== encoderHintSeq) return;
-            if (!gpu) showEncoderHint("Nenhuma GPU compatível (NVIDIA, AMD ou Intel) — o reencode vai usar a CPU.");
-            else if (!HDLDownloader.gpuVideoArgs(gpu, o.codec)) showEncoderHint(gpu.label + " não faz H.265 nesta placa — esse vai usar a CPU.");
-            else showEncoderHint("Usando " + gpu.label + ": bem mais rápido, com arquivo um pouco maior que o da CPU.");
+            if (!gpu) showEncoderHint(tr("Nenhuma GPU compatível (NVIDIA, AMD ou Intel) — o reencode vai usar a CPU."));
+            else if (!HDLDownloader.gpuVideoArgs(gpu, o.codec)) showEncoderHint(tr("{0} não faz H.265 nesta placa — esse vai usar a CPU.", gpu.label));
+            else showEncoderHint(tr("Usando {0}: bem mais rápido, com arquivo um pouco maior que o da CPU.", gpu.label));
         });
     }
 

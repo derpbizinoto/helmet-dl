@@ -6,6 +6,7 @@
 var HDLToolsUI = (function () {
     var C = HDL_CONFIG;
     var U = HDLUi;
+    var tr = HDLI18n.t, N = HDLI18n.N;
     var els = U.els;
 
     var busy = null; // promise de uma instalação em andamento (uma por vez)
@@ -13,7 +14,7 @@ var HDLToolsUI = (function () {
     // (a linha de status fica no topo do painel, longe do botão).
     var notes = {};
 
-    var SOURCE_LABEL = { managed: "instalado pela extensão", path: "do sistema", python: "via Python" };
+    var SOURCE_LABEL = { managed: N("instalado pela extensão"), path: N("do sistema"), python: N("via Python") };
 
     function label(name) {
         return C.TOOLS[name].label;
@@ -21,7 +22,7 @@ var HDLToolsUI = (function () {
 
     function render(progressFor, progressText) {
         if (!U.hasNode) {
-            els.toolsSummary.textContent = "só dentro do Premiere";
+            els.toolsSummary.textContent = tr("só dentro do Premiere");
             return;
         }
         var st = HDLTools.state;
@@ -41,22 +42,22 @@ var HDLToolsUI = (function () {
                 r.el.textContent = notes[k];
                 if (!r.t) missing.push(label(k));
             } else if (r.t) {
-                r.el.textContent = r.t.version + " · " + (SOURCE_LABEL[r.t.source] || r.t.source);
+                r.el.textContent = r.t.version + " · " + (SOURCE_LABEL[r.t.source] ? tr(SOURCE_LABEL[r.t.source]) : r.t.source);
             } else {
-                r.el.textContent = r.required ? "Não instalado" : "Recomendado para o YouTube";
+                r.el.textContent = r.required ? tr("Não instalado") : tr("Recomendado para o YouTube");
                 missing.push(label(k));
             }
-            if (k === "ytdlp") r.btn.textContent = r.t ? "Atualizar" : "Instalar";
+            if (k === "ytdlp") r.btn.textContent = r.t ? tr("Atualizar") : tr("Instalar");
             else if (k === "ffmpeg") {
-                r.btn.textContent = r.t ? "Reinstalar" : "Instalar";
+                r.btn.textContent = r.t ? tr("Reinstalar") : tr("Instalar");
                 r.btn.style.display = (r.t && r.t.source !== "managed") || !HDLTools.isWin ? "none" : "";
             } else {
-                r.btn.textContent = r.t ? "Reinstalar" : "Instalar";
+                r.btn.textContent = r.t ? tr("Reinstalar") : tr("Instalar");
                 r.btn.style.display = r.t && r.t.source !== "managed" ? "none" : "";
             }
             r.btn.disabled = !!busy;
         });
-        els.toolsSummary.textContent = progressFor ? "instalando…" : (missing.length ? "falta " + missing.join(", ") : "tudo pronto");
+        els.toolsSummary.textContent = progressFor ? tr("instalando…") : (missing.length ? tr("falta {0}", missing.join(", ")) : tr("tudo pronto"));
     }
 
     function pct(got, total) {
@@ -69,24 +70,24 @@ var HDLToolsUI = (function () {
             : name === "ffmpeg" ? HDLTools.installFfmpeg : HDLTools.installDeno;
         var run = function () {
             delete notes[name];
-            U.appendLog("Instalando " + label(name) + "…");
-            render(name, "Baixando…");
+            U.appendLog(tr("Instalando {0}…", label(name)));
+            render(name, tr("Baixando…"));
             return fn(function (got, total) {
-                var txt = got < 0 ? "Baixando (modo alternativo, aguarde)…" : "Baixando " + pct(got, total);
+                var txt = got < 0 ? tr("Baixando (modo alternativo, aguarde)…") : tr("Baixando {0}", pct(got, total));
                 render(name, txt);
-                if (onText) onText("Instalando " + label(name) + " · " + txt);
+                if (onText) onText(tr("Instalando {0}", label(name)) + " · " + txt);
             }).then(function (res) {
-                if (!res) throw new Error(label(name) + " foi baixado, mas não respondeu. Veja o log.");
-                U.appendLog(label(name) + " pronto: " + res.version);
+                if (!res) throw new Error(tr("{0} foi baixado, mas não respondeu. Veja o log.", label(name)));
+                U.appendLog(tr("{0} pronto: {1}", label(name), res.version));
                 return res;
             }, function (e) {
                 // o detalhe técnico fica no log; na tela, uma frase clara
-                U.appendLog("Falha ao instalar " + label(name) + ": " + e.message);
+                U.appendLog(tr("Falha ao instalar {0}: {1}", label(name), e.message));
                 var network = HDLTools.isNetworkError(e.message);
                 var had = HDLTools.state[name];
-                notes[name] = (network ? "Sem conexão com a internet — " : "Falhou (veja o Log) — ") +
-                    (had ? "a versão " + had.version + " continua" : "não instalado");
-                if (network) throw new Error("Não deu para instalar o " + label(name) + ". " + HDLTools.NETWORK_MESSAGE);
+                var now = had ? tr("a versão {0} continua", had.version) : tr("não instalado");
+                notes[name] = network ? tr("Sem conexão com a internet — {0}", now) : tr("Falhou (veja o Log) — {0}", now);
+                if (network) throw new Error(tr("Não deu para instalar o {0}.", label(name)) + " " + tr(HDLTools.NETWORK_MESSAGE));
                 throw e;
             });
         };
@@ -105,17 +106,17 @@ var HDLToolsUI = (function () {
             if (!st.ytdlp) return install("ytdlp", onText);
         }).then(function () {
             if (!st.ffmpeg) {
-                if (!HDLTools.isWin) throw new Error("FFmpeg não encontrado. No macOS, instale com: brew install ffmpeg");
+                if (!HDLTools.isWin) throw new Error(tr("FFmpeg não encontrado. No macOS, instale com: brew install ffmpeg"));
                 return install("ffmpeg", onText);
             }
         }).then(function () {
             if (!st.deno) {
                 return install("deno", onText).catch(function (e) {
-                    U.appendLog("Deno não instalado (" + e.message + "). O YouTube pode ficar limitado.");
+                    U.appendLog(tr("Deno não instalado ({0}). O YouTube pode ficar limitado.", e.message));
                 });
             }
         }).then(function () {
-            if (!st.ytdlp) throw new Error("yt-dlp não está disponível. Veja Ferramentas.");
+            if (!st.ytdlp) throw new Error(tr("yt-dlp não está disponível. Veja Ferramentas."));
         });
     }
 
@@ -131,7 +132,7 @@ var HDLToolsUI = (function () {
             catch (e) { HDLLog.debug("não consegui gravar a data da verificação", e.message); }
             if (!latest || !st.ytdlp || latest === st.ytdlp.version) return;
             if (HDLQueue.isRunning()) return; // não troca o .exe no meio de um download
-            U.appendLog("Nova versão do yt-dlp: " + latest + " (atual " + st.ytdlp.version + ")");
+            U.appendLog(tr("Nova versão do yt-dlp: {0} (atual {1})", latest, st.ytdlp.version));
             install("ytdlp").catch(function () { /* já registrado no log */ });
         });
     }
@@ -139,11 +140,11 @@ var HDLToolsUI = (function () {
     // Botões Instalar/Atualizar/Reinstalar do card.
     function onButton(name) {
         if (name === "ytdlp" && HDLQueue.isRunning()) {
-            U.setStatus("Espere o download atual terminar para atualizar o yt-dlp.", "warning");
+            U.setStatus(tr("Espere o download atual terminar para atualizar o yt-dlp."), "warning");
             return;
         }
         install(name).then(function () {
-            U.setStatus("Ferramenta instalada.", "success");
+            U.setStatus(tr("Ferramenta instalada."), "success");
         }, function (e) {
             U.setStatus(e.message, "error");
             els.logDetails.open = true;

@@ -9,6 +9,7 @@
 var HDLQueue = (function () {
     var C = HDL_CONFIG;
     var U = HDLUi;
+    var tr = HDLI18n.t;
     var els = U.els;
     var nodePath = U.hasNode ? require("path") : null;
     var nodeFs = U.hasNode ? require("fs") : null;
@@ -30,10 +31,10 @@ var HDLQueue = (function () {
             var s = HDLDownloader.parseTime(o.trimStartText);
             var e = HDLDownloader.parseTime(o.trimEndText);
             if ((s !== null && isNaN(s)) || (e !== null && isNaN(e))) {
-                throw new Error("Trecho inválido. Use segundos ou o formato 00:01:30.");
+                throw new Error(tr("Trecho inválido. Use segundos ou o formato 00:01:30."));
             }
-            if (s === null && e === null) throw new Error("Informe o início e/ou o fim do trecho.");
-            if (s !== null && e !== null && e <= s) throw new Error("O fim do trecho precisa ser depois do início.");
+            if (s === null && e === null) throw new Error(tr("Informe o início e/ou o fim do trecho."));
+            if (s !== null && e !== null && e <= s) throw new Error(tr("O fim do trecho precisa ser depois do início."));
             o.trimStart = s || 0;
             o.trimEnd = e;
         }
@@ -45,12 +46,12 @@ var HDLQueue = (function () {
         U.setStatus("");
         var parsed = HDLPreview.parseUrls(els.urlInput.value);
         if (!parsed.valid.length) {
-            U.setStatus(parsed.invalid.length ? "Isso não parece um link. Cole o endereço completo do vídeo." : "Cole um link primeiro.", "warning");
+            U.setStatus(parsed.invalid.length ? tr("Isso não parece um link. Cole o endereço completo do vídeo.") : tr("Cole um link primeiro."), "warning");
             els.urlInput.focus();
             return;
         }
         if (!U.hasNode || !HDLBridge.available) {
-            U.setStatus("Abra o painel dentro do Premiere (Janela › Extensões › Helmet DL) para baixar.", "warning");
+            U.setStatus(tr("Abra o painel dentro do Premiere (Janela › Extensões › Helmet DL) para baixar."), "warning");
             return;
         }
         var opts;
@@ -64,7 +65,7 @@ var HDLQueue = (function () {
                 opts: JSON.parse(JSON.stringify(opts)),
                 title: cached ? cached.title : url,
                 state: "queued",
-                text: "Na fila",
+                text: tr("Na fila"),
                 nums: "",
                 percent: null,
                 files: [],
@@ -74,7 +75,7 @@ var HDLQueue = (function () {
             jobs.push(job);
             renderJob(job);
         });
-        if (parsed.invalid.length) U.setStatus("Ignorado (não é link): " + parsed.invalid.join(" "), "warning");
+        if (parsed.invalid.length) U.setStatus(tr("Ignorado (não é link): {0}", parsed.invalid.join(" ")), "warning");
 
         els.urlInput.value = "";
         HDLPreview.reset();
@@ -121,20 +122,20 @@ var HDLQueue = (function () {
         }
 
         return Promise.resolve().then(function () {
-            setJob(job, { state: "running", text: "Preparando…", percent: null, nums: "" });
+            setJob(job, { state: "running", text: tr("Preparando…"), percent: null, nums: "" });
             return HDLToolsUI.ensureEssential(function (t) { progress(t, null); });
         }).then(function () {
             checkCanceled(job);
             return HDLProject.refresh();
         }).then(function () {
             if (!HDLProject.info.path) {
-                throw new Error("Salve o projeto do Premiere antes de baixar — a pasta \"" + C.FOLDER_NAME + "\" é criada ao lado do arquivo .prproj.");
+                throw new Error(tr("Salve o projeto do Premiere antes de baixar — a pasta \"{0}\" é criada ao lado do arquivo .prproj.", C.FOLDER_NAME));
             }
             outDir = HDLProject.helmetDir();
             job.outDir = outDir;
             HDLTools.ensureDir(outDir);
-            U.appendLog("Baixando " + job.url + " → " + outDir);
-            progress("Lendo informações…", null);
+            U.appendLog(tr("Baixando {0} → {1}", job.url, outDir));
+            progress(tr("Lendo informações…"), null);
             job.handle = HDLDownloader.download(job.url, o, outDir, {
                 onProgress: function (p) { progress(p.text, p.percent, p.nums); },
                 onLog: U.appendLog
@@ -149,13 +150,13 @@ var HDLQueue = (function () {
             // ou falhar, ele também é apagado (a não ser que já existisse antes deste download).
             if (o.content !== "audio" && o.mode === "reencode" && !res.alreadyHad) job.intermediates = res.files.slice();
             savePending(job);
-            if (res.partialError) U.appendLog("Aviso: " + res.partialError);
+            if (res.partialError) U.appendLog(tr("Aviso: {0}", res.partialError));
             if (res.files.length && job.title === job.url) job.title = nodePath.basename(res.files[0]);
             return postProcess(job, res.files, res.alreadyHad);
         }).then(function (finals) {
             checkCanceled(job);
             job.files = finals;
-            progress("Importando no Project…", null);
+            progress(tr("Importando no Project…"), null);
             var list = finals.map(function (f) { return encodeURIComponent(f); }).join(",");
             return HDLBridge.call("hdl_importFiles", [list, o.bin ? C.BIN_NAME : ""])
                 .then(function (r) { return { r: r, finals: finals }; });
@@ -163,9 +164,9 @@ var HDLQueue = (function () {
             var r = x.r;
             var where = r.bin ? "Project › " + r.bin : "Project";
             var text;
-            if (r.imported && r.result) text = (r.imported > 1 ? r.imported + " arquivos importados em " : "Importado em ") + where;
-            else if (r.imported && !r.result) text = "Baixado, mas o Premiere recusou a importação. O arquivo está na pasta " + C.FOLDER_NAME + ".";
-            else text = "Já estava no " + where;
+            if (r.imported && r.result) text = r.imported > 1 ? tr("{0} arquivos importados em {1}", r.imported, where) : tr("Importado em {0}", where);
+            else if (r.imported && !r.result) text = tr("Baixado, mas o Premiere recusou a importação. O arquivo está na pasta {0}.", C.FOLDER_NAME);
+            else text = tr("Já estava no {0}", where);
             var state = job.warn ? "warn" : (r.imported && !r.result ? "warn" : "done");
             if (job.warn) text += " · " + job.warn;
             var size = 0;
@@ -173,7 +174,7 @@ var HDLQueue = (function () {
                 try { size += nodeFs.statSync(f).size; } catch (e) { HDLLog.debug("sem tamanho para", f); }
             });
             setJob(job, { state: state, text: text, percent: null, nums: [job.resLabel, U.fmtBytes(size)].filter(Boolean).join(" · ") });
-            U.appendLog("Concluído: " + x.finals.join(" | "));
+            U.appendLog(tr("Concluído: {0}", x.finals.join(" | ")));
             clearPending(job);
         }).catch(function (e) {
             job.handle = null;
@@ -183,11 +184,11 @@ var HDLQueue = (function () {
             collectFinished(job);
             cleanupPartials(outDir, startedAt, job);
             if (e.canceled || job.cancelRequested) {
-                setJob(job, { state: "canceled", text: "Cancelado", percent: null, nums: "" });
-                U.appendLog("Cancelado: " + job.url);
+                setJob(job, { state: "canceled", text: tr("Cancelado"), percent: null, nums: "" });
+                U.appendLog(tr("Cancelado: {0}", job.url));
             } else {
                 setJob(job, { state: "error", text: e.message, percent: null, nums: "" });
-                U.appendLog("ERRO: " + e.message);
+                U.appendLog(tr("ERRO: {0}", e.message));
             }
         });
     }
@@ -204,18 +205,18 @@ var HDLQueue = (function () {
             ? HDLDownloader.detectGpu().then(function (g) { return HDLDownloader.gpuVideoArgs(g, o.codec) ? g : null; })
             : Promise.resolve(null);
         var encodeWith = function (gpu) {
-            setJob(job, { text: "Reencodando para " + codecLabel + (gpu ? " (GPU)" : " (CPU)") + tag + "…", percent: 0, nums: "" });
+            setJob(job, { text: tr("Reencodando para {0}…", codecLabel + (gpu ? " (GPU)" : " (CPU)") + tag), percent: 0, nums: "" });
             job.handle = HDLDownloader.reencode(file, out, o.codec, o.content === "video", info, function (f) {
                 setJob(job, { percent: f, nums: Math.floor(f * 100) + "%" });
             }, U.appendLog, gpu);
             return job.handle.promise;
         };
         return gpuStep.then(function (gpu) {
-            if (o.encoder === "gpu" && !gpu) U.appendLog("GPU indisponível para " + codecLabel + "; usando a CPU.");
+            if (o.encoder === "gpu" && !gpu) U.appendLog(tr("GPU indisponível para {0}; usando a CPU.", codecLabel));
             return encodeWith(gpu).catch(function (e) {
                 // a GPU falhou (driver, resolução não suportada…): refaz na CPU
                 if (!gpu || e.canceled || job.cancelRequested) throw e;
-                U.appendLog("O encode na GPU falhou (" + e.message + "). Refazendo na CPU…");
+                U.appendLog(tr("O encode na GPU falhou ({0}). Refazendo na CPU…", e.message));
                 try { nodeFs.unlinkSync(out); } catch (x) { /* a GPU não chegou a criar o arquivo */ }
                 return encodeWith(null);
             });
@@ -246,7 +247,7 @@ var HDLQueue = (function () {
                         return reencodeFile(job, file, info, tag).then(function (out) {
                             if (o.mode === "reencode") {
                                 if (!alreadyHad) {
-                                    try { nodeFs.unlinkSync(file); } catch (e) { U.appendLog("Não apaguei o original: " + e.message); }
+                                    try { nodeFs.unlinkSync(file); } catch (e) { U.appendLog(tr("Não apaguei o original: {0}", e.message)); }
                                 }
                                 finals.push(out);
                             } else {
@@ -257,13 +258,13 @@ var HDLQueue = (function () {
 
                     var after = Promise.resolve(info);
                     if (o.content === "video" && info && info.acodec) {
-                        setJob(job, { text: "Removendo o áudio" + tag + "…", percent: null, nums: "" });
+                        setJob(job, { text: tr("Removendo o áudio{0}…", tag), percent: null, nums: "" });
                         job.handle = HDLDownloader.stripAudio(file, U.appendLog);
                         after = job.handle.promise.then(function () { info.acodec = null; return info; });
                     }
                     return after.then(function (inf) {
                         var w = HDLDownloader.compatWarning(inf);
-                        if (w) { job.warn = w; U.appendLog("Aviso: " + w); }
+                        if (w) { job.warn = w; U.appendLog(tr("Aviso: {0}", w)); }
                         finals.push(file);
                     });
                 });
@@ -424,22 +425,22 @@ var HDLQueue = (function () {
             }
             removeLeftovers(rec.outDir, rec.since, rec, false);
             clearPending();
-            U.appendLog("Apaguei as sobras do download interrompido quando o painel foi fechado (" + rec.outDir + ").");
+            U.appendLog(tr("Apaguei as sobras do download interrompido quando o painel foi fechado ({0}).", rec.outDir));
         }, C.CLEANUP_DELAY_MS);
     }
 
     function cancelJob(job) {
         job.cancelRequested = true;
         if (job.state === "queued") {
-            setJob(job, { state: "canceled", text: "Cancelado" });
+            setJob(job, { state: "canceled", text: tr("Cancelado") });
             return;
         }
-        setJob(job, { text: "Cancelando…" });
+        setJob(job, { text: tr("Cancelando…") });
         if (job.handle) job.handle.cancel();
     }
 
     function retryJob(job) {
-        setJob(job, { state: "queued", text: "Na fila", percent: null, nums: "", cancelRequested: false, warn: null, files: [] });
+        setJob(job, { state: "queued", text: tr("Na fila"), percent: null, nums: "", cancelRequested: false, warn: null, files: [] });
         pump();
     }
 
@@ -519,9 +520,9 @@ var HDLQueue = (function () {
         var actionsEl = job.el.querySelector(".q-actions");
         if (actionsEl.dataset.key !== job.state) {
             var actions;
-            if (job.state === "queued" || job.state === "running") actions = [iconBtn("cancel", "i-x", "Cancelar")];
-            else if (job.state === "done" || job.state === "warn") actions = [iconBtn("reveal", "i-folder", "Mostrar na pasta"), iconBtn("remove", "i-x", "Tirar da lista")];
-            else actions = [iconBtn("retry", "i-retry", "Tentar de novo"), iconBtn("remove", "i-x", "Tirar da lista")];
+            if (job.state === "queued" || job.state === "running") actions = [iconBtn("cancel", "i-x", tr("Cancelar"))];
+            else if (job.state === "done" || job.state === "warn") actions = [iconBtn("reveal", "i-folder", tr("Mostrar na pasta")), iconBtn("remove", "i-x", tr("Tirar da lista"))];
+            else actions = [iconBtn("retry", "i-retry", tr("Tentar de novo")), iconBtn("remove", "i-x", tr("Tirar da lista"))];
             while (actionsEl.firstChild) actionsEl.removeChild(actionsEl.firstChild);
             actions.forEach(function (b) { actionsEl.appendChild(b); });
             actionsEl.dataset.key = job.state;
@@ -571,7 +572,7 @@ var HDLQueue = (function () {
         els.dockTitle.textContent = job.title;
         els.dockBar.style.width = Math.round((job.percent || 0) * 100) + "%";
         var queued = jobs.filter(function (j) { return j.state === "queued" && j !== job; }).length;
-        els.dockState.textContent = job.text + (queued ? " · +" + queued + " na fila" : "");
+        els.dockState.textContent = job.text + (queued ? " · " + tr("+{0} na fila", queued) : "");
         els.dockState.title = job.text;
         els.dockNums.textContent = job.nums || "";
         if (els.dock.hidden) els.dock.hidden = false;
@@ -587,15 +588,26 @@ var HDLQueue = (function () {
         els.dockCancel.addEventListener("click", function () { if (dockJob) cancelJob(dockJob); });
     }
 
+    // Idioma trocado: botões de cada item e os estados fixos (na fila, cancelado).
+    // O texto de um download em andamento troca sozinho no próximo passo dele.
+    function relabel() {
+        jobs.forEach(function (job) {
+            if (job.state === "queued") job.text = tr("Na fila");
+            else if (job.state === "canceled") job.text = tr("Cancelado");
+            if (job.el) job.el.querySelector(".q-actions").dataset.key = "";
+            renderJob(job);
+        });
+    }
+
     // --- prévia no navegador (fora do Premiere): index.html?demo ------------------------------
 
     function demo() {
         var samples = [
-            { title: "Como montar um set de iluminação barato", state: "running", text: "Baixando vídeo", percent: 0.62, nums: "62% · 8.4 MB/s · 0:12" },
-            { title: "Trailer oficial — 4K", state: "queued", text: "Na fila" },
-            { title: "Entrevista completa (corte 10:00–12:30)", state: "done", text: "Importado em Project › Helmet DL", nums: "1080p · 54.2 MB" },
-            { title: "clip_twitch_epic_moment", state: "warn", text: "Importado em Project › Helmet DL · Veio com vídeo em VP9, que o Premiere pode não abrir.", nums: "720p · 12.0 MB" },
-            { title: "https://www.instagram.com/reel/xyz", state: "error", text: "Login necessário — escolha um navegador em \"Cookies do navegador\"." }
+            { title: "Como montar um set de iluminação barato", state: "running", text: tr("Baixando vídeo"), percent: 0.62, nums: "62% · 8.4 MB/s · 0:12" },
+            { title: "Trailer oficial — 4K", state: "queued", text: tr("Na fila") },
+            { title: "Entrevista completa (corte 10:00–12:30)", state: "done", text: tr("Importado em {0}", "Project › Helmet DL"), nums: "1080p · 54.2 MB" },
+            { title: "clip_twitch_epic_moment", state: "warn", text: tr("Importado em {0}", "Project › Helmet DL") + " · " + tr("Veio com {0}, que o Premiere pode não abrir. Se der problema, baixe de novo com Reencode.", tr("vídeo em {0}", "VP9")), nums: "720p · 12.0 MB" },
+            { title: "https://www.instagram.com/reel/xyz", state: "error", text: tr("Este site não é suportado (o yt-dlp não sabe baixar desse endereço).") }
         ];
         samples.reverse().forEach(function (s) {
             var job = { id: nextJobId++, url: s.title, opts: {}, title: s.title, state: s.state, text: s.text, nums: s.nums || "", percent: s.percent, files: [] };
@@ -604,12 +616,13 @@ var HDLQueue = (function () {
         });
         els.preview.style.display = "";
         els.previewTitle.textContent = "Como montar um set de iluminação barato para gravar em casa";
-        els.previewMeta.textContent = "Canal Exemplo · Youtube · até 2160p";
+        els.previewMeta.textContent = "Canal Exemplo · Youtube · " + tr("até {0}p", 2160);
         els.previewDuration.textContent = "12:48";
     }
 
     return {
         enqueue: enqueue,
+        relabel: relabel,
         isRunning: isRunning,
         clearDone: clearDone,
         onListClick: onListClick,

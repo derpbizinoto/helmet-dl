@@ -34,12 +34,14 @@ function ok(cond, what) { if (!cond) throw new Error(what || "condição falsa")
 process.env.APPDATA = path.join(TMP, "appdata");
 const ctx = { require, process, Buffer, console, setTimeout, clearTimeout, Promise, URL };
 vm.createContext(ctx);
-["config.js", "tools.js", "downloader.js"].forEach((f) =>
+["config.js", "i18n.js", "tools.js", "downloader.js"].forEach((f) =>
     vm.runInContext(fs.readFileSync(path.join(JS, f), "utf8"), ctx, { filename: f }));
-const T = ctx.HDLTools, D = ctx.HDLDownloader;
+const T = ctx.HDLTools, D = ctx.HDLDownloader, I = ctx.HDLI18n;
+// os testes de mensagens conferem o texto em português; os de idioma trocam quando precisam
+I.setLang("pt");
 
 // preview.js só precisa do HDLUi para a parte de URLs
-const pctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLUi: { els: {} }, URL, setTimeout, clearTimeout };
+const pctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLI18n: I, HDLUi: { els: {} }, URL, setTimeout, clearTimeout };
 vm.createContext(pctx);
 vm.runInContext(fs.readFileSync(path.join(JS, "preview.js"), "utf8"), pctx, { filename: "preview.js" });
 const P = pctx.HDLPreview;
@@ -111,7 +113,7 @@ const fakeStorage = {
     removeItem: (k) => { delete store[k]; }
 };
 const panelLog = [];
-const qctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLUi: { els: {}, hasNode: true, appendLog: (l) => panelLog.push(l) },
+const qctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLI18n: I, HDLUi: { els: {}, hasNode: true, appendLog: (l) => panelLog.push(l) },
     HDLLog: ctx.HDLLog, HDLDownloader: D, require, setTimeout, clearTimeout, Date, localStorage: fakeStorage };
 vm.createContext(qctx);
 vm.runInContext(fs.readFileSync(path.join(JS, "queue.js"), "utf8"), qctx, { filename: "queue.js" });
@@ -361,7 +363,7 @@ test("Ferramentas: atualizar sem internet mostra o aviso na linha do yt-dlp", as
         state: { ytdlp: { version: "2025.10.22", source: "managed" }, ffmpeg: { version: "7.1", source: "managed" }, deno: null },
         updateYtdlp: () => Promise.reject(new Error("getaddrinfo ENOTFOUND github.com / Não foi possível baixar (O nome remoto n�o p�de ser resolvido)"))
     };
-    const tctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLLog: ctx.HDLLog, HDLTools: fakeTools, HDLQueue: { isRunning: () => false },
+    const tctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLI18n: I, HDLLog: ctx.HDLLog, HDLTools: fakeTools, HDLQueue: { isRunning: () => false },
         HDLUi: { els, hasNode: true, appendLog() {}, updateEncoderHint() {}, fmtBytes: () => "", setStatus: (m, k) => { status = [m, k]; } },
         Promise, setTimeout, localStorage: fakeStorage };
     vm.createContext(tctx);
@@ -379,7 +381,7 @@ test("Ferramentas: atualizar sem internet mostra o aviso na linha do yt-dlp", as
 function loadBridge(host, extensionPath) {
     const logs = [];
     const bctx = {
-        window: { __adobe_cep__: {} }, SystemPath: { EXTENSION: "x" }, Promise, setTimeout, JSON,
+        window: { __adobe_cep__: {} }, SystemPath: { EXTENSION: "x" }, Promise, setTimeout, JSON, HDLI18n: I,
         CSInterface: function () {
             this.evalScript = (s, cb) => {
                 let o;
@@ -433,6 +435,91 @@ test("ponte: host não carregado vira mensagem clara", async () => {
     await B.call("hdl_getProjectInfo").catch((e) => { msg = e.message; });
     ok(/reinstale a extensão/.test(msg), msg);
     ok(logs.some((l) => /EvalScript error/.test(l)), "detalhe técnico no log");
+});
+
+// ---------------------------------------------------------------------------------
+// Idioma (inglês padrão, português opcional)
+
+// Frases do código: tr("…") e N("…") nos arquivos do painel.
+function codeKeys() {
+    const keys = new Set();
+    fs.readdirSync(JS).filter((f) => f.endsWith(".js") && f !== "CSInterface.js" && f !== "i18n.js").forEach((f) => {
+        const src = fs.readFileSync(path.join(JS, f), "utf8");
+        const re = /\b(?:tr|N)\(\s*"((?:[^"\\]|\\.)*)"/g;
+        let m;
+        while ((m = re.exec(src))) keys.add(JSON.parse('"' + m[1] + '"'));
+    });
+    return keys;
+}
+
+// Textos fixos do index.html (conteúdo das tags e title/placeholder/aria-label).
+function htmlTexts() {
+    const html = fs.readFileSync(path.join(EXT, "client", "index.html"), "utf8")
+        .replace(/<script[\s\S]*?<\/script>/g, "").replace(/<!--[\s\S]*?-->/g, "");
+    const body = html.slice(html.indexOf("<body"));
+    const out = new Set();
+    let m;
+    const tre = />([^<>]+)</g;
+    while ((m = tre.exec(body))) { const s = m[1].trim(); if (s) out.add(s.replace(/&quot;/g, '"').replace(/&amp;/g, "&")); }
+    const are = /\b(?:title|placeholder|aria-label)="([^"]*)"/g;
+    while ((m = are.exec(body))) if (m[1].trim()) out.add(m[1]);
+    return out;
+}
+
+// Iguais nos dois idiomas (nomes, formatos, números).
+const SAME_IN_BOTH = /^(Helmet DL|Download|Downloads|Log|yt-dlp|FFmpeg|Deno|Original|Remux|CPU|GPU|MP4|MOV|MKV|WAV|English|Português \(Brasil\)|Language \/ Idioma|Firefox|Chrome|Edge|Brave|Opera|Vivaldi|[\w.\/ ()+-]*\d[\w.\/ ()+-]*|[\d:]+|—)$/;
+
+test("idioma: toda frase do código tem tradução em inglês", () => {
+    const missing = [...codeKeys()].filter((k) => !Object.prototype.hasOwnProperty.call(I.EN, k));
+    eq(missing, [], "sem tradução");
+});
+test("idioma: todo texto do index.html tem tradução (ou é igual nos dois)", () => {
+    const missing = [...htmlTexts()].filter((k) => !Object.prototype.hasOwnProperty.call(I.EN, k) && !SAME_IN_BOTH.test(k));
+    eq(missing, [], "sem tradução");
+});
+test("idioma: mensagens do host/index.jsx têm tradução", () => {
+    const host = fs.readFileSync(path.join(EXT, "host", "index.jsx"), "utf8");
+    const re = /hdl_fail\("([^"]+)"/g;
+    let m, n = 0;
+    while ((m = re.exec(host))) {
+        n++;
+        const msg = m[1] + (/: $/.test(m[1]) ? "x" : "");
+        ok(Object.prototype.hasOwnProperty.call(I.EN, msg) || Object.prototype.hasOwnProperty.call(I.EN, m[1] + "{0}"), m[1]);
+    }
+    ok(n >= 4, "achou as mensagens do host");
+});
+test("idioma: tradução usa os mesmos {0} {1} da frase original", () => {
+    const marks = (s) => (s.match(/\{\d\}/g) || []).sort().join();
+    const bad = Object.keys(I.EN).filter((k) => marks(k) !== marks(I.EN[k]));
+    eq(bad, [], "marcadores diferentes");
+    const unused = Object.keys(I.EN).filter((k) => !codeKeys().has(k) && !htmlTexts().has(k) &&
+        !/^(Nenhum projeto aberto\.|Erro ao ler o projeto: \{0\}|Nenhum arquivo encontrado para importar\.|Erro ao importar no Premiere: \{0\})$/.test(k));
+    eq(unused, [], "tradução que ninguém usa");
+});
+test("idioma: inglês é o padrão, português traduz de volta, host traduzido", () => {
+    const c = { HDL_CONFIG: ctx.HDL_CONFIG };
+    vm.createContext(c);
+    vm.runInContext(fs.readFileSync(path.join(JS, "i18n.js"), "utf8"), c, { filename: "i18n.js" });
+    const L = c.HDLI18n;
+    eq(L.lang(), "en", "padrão sem nada salvo");
+    eq(L.t("Baixando {0}", "50%"), "Downloading 50%");
+    eq(L.t("frase que não está no dicionário {0}", 1), "frase que não está no dicionário 1");
+    eq(L.tMessage("Erro ao importar no Premiere: Error: x"), "Error importing into Premiere: Error: x");
+    eq(L.tMessage("Nenhum projeto aberto."), "No project open.");
+    eq(L.tMessage("outra coisa"), "outra coisa");
+    L.setLang("pt");
+    eq(L.t("Baixando {0}", "50%"), "Baixando 50%");
+    eq(L.tMessage("Nenhum projeto aberto."), "Nenhum projeto aberto.");
+    L.setLang("xx");
+    eq(L.lang(), "pt", "idioma desconhecido é ignorado");
+});
+test("idioma: mensagem de rede em inglês ainda é reconhecida como erro de rede", () => {
+    I.setLang("en");
+    try {
+        ["No connection to github.com", "The download stopped responding.", "The connection dropped during the download.",
+            "Timed out connecting to 1.2.3.4"].forEach((m) => ok(T.isNetworkError(m), m));
+        eq(D.friendlyError("getaddrinfo ENOTFOUND github.com"), I.EN[T.NETWORK_MESSAGE]);
+    } finally { I.setLang("pt"); }
 });
 
 // ---------------------------------------------------------------------------------
