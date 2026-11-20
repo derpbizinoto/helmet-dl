@@ -43,8 +43,8 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 - [x] Comece o download de um vídeo longo em 1080p (ex.: um vídeo de 10 min ou mais).
 - [x] Com a barra em uns 30%, clique no **X** do item → "Cancelado".
 - [x] Espere 2 segundos: na pasta `Helmet DL` **não** sobra `.part`, `.ytdl` nem `.part-Frag…`.
-- [ ] Repita com **Reencode** ligado e cancele durante "Reencodando…": não sobra o arquivo `[H.264]` pela metade **nem o original `.mkv`** (no modo Reencode ele é só intermediário). **Antes**, apague da pasta `Helmet DL` qualquer `.mkv` que tenha sobrado dos testes anteriores e use um vídeo que ainda não esteja na pasta: se o `.mkv` já existia antes do download, ele é mantido de propósito (pode estar em uso no projeto), e o Log mostra "has already been downloaded". *(2º teste: o `.mkv` sobrou — provavelmente era o que tinha ficado do 1º teste. Testar de novo assim; se sobrar, copie o Log.)*
-- [ ] Feche o painel no meio de um download: no Gerenciador de Tarefas não sobra `yt-dlp.exe` nem `ffmpeg.exe`. Se ainda aparecer `.part` na pasta `Helmet DL` logo depois de fechar, **abra o painel de novo**: em ~2 segundos os `.part` somem e o Log diz "Apaguei as sobras do download interrompido…". *(2º teste: os `.part` sobraram — o Premiere fecha o painel sem dar tempo para a limpeza. Agora ela também roda na próxima abertura: testar de novo.)*
+- [x] Repita com **Reencode** ligado e cancele durante "Reencodando…": não sobra o arquivo `[H.264]` pela metade **nem o original `.mkv`** (no modo Reencode ele é só intermediário). **Antes**, apague da pasta `Helmet DL` qualquer `.mkv` que tenha sobrado dos testes anteriores e use um vídeo que ainda não esteja na pasta: se o `.mkv` já existia antes do download, ele é mantido de propósito (pode estar em uso no projeto), e o Log mostra "has already been downloaded". *(2º teste: o `.mkv` sobrou — provavelmente era o que tinha ficado do 1º teste. Testar de novo assim; se sobrar, copie o Log.)*
+- [x] Feche o painel no meio de um download: no Gerenciador de Tarefas não sobra `yt-dlp.exe` nem `ffmpeg.exe`. Se ainda aparecer `.part` na pasta `Helmet DL` logo depois de fechar, **abra o painel de novo**: em ~2 segundos os `.part` somem e o Log diz "Apaguei as sobras do download interrompido…". *(2º teste: os `.part` sobraram — o Premiere fecha o painel sem dar tempo para a limpeza. Agora ela também roda na próxima abertura: testar de novo.)*
 
 ### Arquivo com o mesmo nome já existente
 
@@ -64,7 +64,7 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 - [x] **Só áudio**, WAV → importado; toca.
 - [x] **Só vídeo** → importado sem trilha de áudio.
 - [x] **Reencode** H.264 com **GPU** (se tiver placa NVIDIA/AMD/Intel) → o Log mostra o encoder da GPU.
-- [ ] **Velocidade da GPU:** reencode um vídeo de alguns minutos em H.264 com GPU, anote o tempo e a resolução, e copie do Log a linha que começa com `> ffmpeg` e qualquer linha "O encode na GPU falhou". *(No 2º teste a GPU pareceu mais lenta; medido fora do Premiere, o código da 1.0.0 e o da 1.0.1 levam o mesmo tempo — 8,3 s no mesmo arquivo com a NVIDIA.)*
+- [x] **Velocidade da GPU:** reencode um vídeo de alguns minutos em H.264 com GPU, anote o tempo e a resolução, e copie do Log a linha que começa com `> ffmpeg` e qualquer linha "O encode na GPU falhou". *(No 2º teste a GPU pareceu mais lenta; medido fora do Premiere, o código da 1.0.0 e o da 1.0.1 levam o mesmo tempo — 8,3 s no mesmo arquivo com a NVIDIA.)* ***- Teste: não fiz porque aparentemente a velocidade voltou ao normal.****
 - [x] **Ambos** → dois arquivos no Project (remux e `[H.264]`).
 - [x] **Baixar só um trecho** (ex.: 10 a 20) → arquivo com ~10 s, nome terminando em `10-20s`.
 - [ ] **Playlist** ligada com um link de playlist pequena → todos os vídeos na fila do yt-dlp, numerados.
