@@ -8,6 +8,8 @@ Same visual identity as [Helmet Desk](https://github.com/derpbizinoto/helmet-des
 
 Free and open source ([MIT license](LICENSE)).
 
+<img src="docs/screenshots/en/painel.png" alt="Helmet DL panel" width="360">
+
 **[⬇ Download the latest version](https://github.com/derpbizinoto/helmet-dl/releases/latest)**: Premiere Pro on Windows.
 
 ## Installation

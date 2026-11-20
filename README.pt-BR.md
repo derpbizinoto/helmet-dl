@@ -17,6 +17,8 @@ Embutidas em `client/fonts/` (com o texto da licença), copiadas do Helmet Desk.
 
 Grátis e de código aberto ([licença MIT](LICENSE)).
 
+<img src="docs/screenshots/pt/painel.png" alt="Painel do Helmet DL" width="360">
+
 **[⬇ Baixar a versão mais recente](https://github.com/derpbizinoto/helmet-dl/releases/latest)**: Premiere Pro no Windows.
 
 ## Instalação
