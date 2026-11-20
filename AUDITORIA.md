@@ -325,3 +325,6 @@ reais fora do Premiere: download e reencode de vídeo do YouTube numa pasta com 
 cancelamento no meio, instalação das três ferramentas com SHA-256 (e recusa de arquivo
 adulterado), PowerShell com aspas no caminho, encerramento de processos. **Não foi testado
 dentro do Premiere** — siga o `TESTES.md`.
+
+Todos os testes manuais no Premiere passaram, e a branch foi juntada à `main` como 1.1.0. Depois
+disso o `TESTES.md` saiu da pasta (continua no histórico: `git show dd621c3:TESTES.md`).

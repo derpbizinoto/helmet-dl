@@ -33,7 +33,7 @@ Nenhum recurso novo e nenhuma mudança visual. O painel funciona igual; por baix
 - Código repetido e sem uso removido.
 - Pasta `_backup/` (tema antigo) e `como instalar.txt` removidos; ficam no histórico do git (commit `3328d34`).
 - `Add Keys.reg` igual ao do Helmet Cutter (CSXS 9 a 16, só `PlayerDebugMode`).
-- Novos: `.gitignore`, `empacotar.ps1`, testes automáticos (`node tests\run-tests.js`), roteiro manual `TESTES.md`, este `CHANGELOG.md`.
+- Novos: `.gitignore`, `empacotar.ps1`, testes automáticos (`node tests\run-tests.js`), roteiro manual `TESTES.md` (removido depois que todos os testes passaram; continua no histórico do git), este `CHANGELOG.md`.
 
 ### Pendente
 

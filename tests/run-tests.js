@@ -4,7 +4,7 @@
 //
 // Carrega os arquivos do painel do mesmo jeito que o Premiere carrega (scripts
 // soltos, sem módulos), dentro de um "vm" do Node. O que depende do Premiere de
-// verdade está no roteiro manual TESTES.md.
+// verdade é testado à mão (roteiro: git show dd621c3:TESTES.md).
 
 "use strict";
 

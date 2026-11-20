@@ -1,7 +1,7 @@
 // tests/premiere-mock.js
 // Imitação MÍNIMA da API do Premiere (app.project, bins, importFiles, File) para
 // rodar o host/index.jsx no Node, fora do Premiere. Só cobre o que os testes usam.
-// Não substitui o teste manual no Premiere (ver TESTES.md).
+// Não substitui o teste manual no Premiere (roteiro: git show dd621c3:TESTES.md).
 
 "use strict";
 

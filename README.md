@@ -62,7 +62,6 @@ instalar.bat              instala para o usuário atual (sem administrador)
 Add Keys.reg              alternativa manual: libera extensões não assinadas (CSXS 9 a 16)
 empacotar.ps1             gera dist\HelmetDL-<versão>.zip para distribuir
 tests/                    testes automáticos (node tests\run-tests.js)
-TESTES.md                 roteiro de teste manual no Premiere
 AUDITORIA.md              auditoria de segurança e limpeza (o que foi achado e corrigido)
 CHANGELOG.md              o que mudou em cada versão
 
@@ -108,7 +107,7 @@ O painel roda com o Node.js liberado (`--enable-nodejs` e `--mixed-context` no `
 node tests\run-tests.js
 ```
 
-Testa sem Premiere e sem internet: limpeza de nomes, links aceitos/recusados, conferência de SHA-256, argumentos do yt-dlp, mensagens de erro e a conversa com o Premiere (sobre uma imitação da API em `tests/premiere-mock.js`). O que só dá para ver no Premiere está em `TESTES.md`.
+Testa sem Premiere e sem internet: limpeza de nomes, links aceitos/recusados, conferência de SHA-256, argumentos do yt-dlp, mensagens de erro e a conversa com o Premiere (sobre uma imitação da API em `tests/premiere-mock.js`). O que só dá para ver no Premiere precisa de teste manual: o roteiro usado na 1.1.0 continua no histórico do git (`git show dd621c3:TESTES.md`).
 
 ### Depuração
 
@@ -133,5 +132,5 @@ Para ver o visual fora do Premiere, sirva a pasta `client` num servidor local (p
 
 1. Mude a versão nos três lugares: `CSXS/manifest.xml` (`ExtensionBundleVersion` e `Extension Version`), `client/js/config.js` (`CLIENT_VERSION`) e `host/index.jsx` (`HDL_HOST_VERSION`).
 2. Anote no `CHANGELOG.md`.
-3. Rode `node tests\run-tests.js` e o roteiro do `TESTES.md`.
+3. Rode `node tests\run-tests.js` e teste no Premiere (roteiro da 1.1.0: `git show dd621c3:TESTES.md`).
 4. Rode `powershell -ExecutionPolicy Bypass -File empacotar.ps1`. Ele confere se as três versões batem, monta `dist\HelmetDL-<versão>.zip` só com o necessário e **para com erro** se achar `.debug`, certificado, chave ou arquivo de cookies.
