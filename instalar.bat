@@ -29,6 +29,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem O .debug abre uma porta de depuracao (so serve para desenvolvimento).
+rem Nunca fica na instalacao de quem usa a extensao.
+if exist "%DEST%\.debug" del /f /q "%DEST%\.debug"
+
 echo Liberando extensoes nao assinadas (PlayerDebugMode)...
 for %%v in (9 10 11 12 13 14 15 16) do (
     reg add "HKCU\Software\Adobe\CSXS.%%v" /v PlayerDebugMode /t REG_SZ /d 1 /f >nul
