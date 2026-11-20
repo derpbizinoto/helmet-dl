@@ -361,6 +361,20 @@ var HDLDownloader = (function () {
         var item = null; // "2 de 5" em playlists
         var alreadyHad = false;
         var created = []; // arquivos que o yt-dlp começou a baixar (para limpar se der erro/cancelar)
+        var finished = []; // arquivos que ficaram prontos (ex.: vídeos já concluídos de uma playlist)
+        var existing = []; // arquivos que já estavam na pasta antes ("has already been downloaded")
+
+        // Arquivos prontos até agora, segundo o --print-to-file (dentro da pasta de destino).
+        function readFinished() {
+            var list = [];
+            try {
+                if (fs.existsSync(printFile)) {
+                    list = fs.readFileSync(printFile, "utf8").split(/\r?\n/).map(function (l) { return l.trim(); })
+                        .filter(function (l) { return l && fs.existsSync(l); });
+                }
+            } catch (e) { HDLLog.debug("não consegui ler", printFile, e.message); }
+            return list.filter(function (f, i) { return list.indexOf(f) === i; });
+        }
 
         function phase(text, percent, nums) {
             cb.onProgress({ text: text, percent: percent, nums: nums || "" });
@@ -391,7 +405,12 @@ var HDLDownloader = (function () {
                 if (isInside(outDir, m[1].trim())) created.push(m[1].trim());
             }
             else if ((m = line.match(/^\[download\] Downloading item (\d+) of (\d+)/))) { item = m[1] + " de " + m[2]; part = 0; }
-            else if (/has already been downloaded/.test(line)) { alreadyHad = true; phase("Já estava baixado", 1); }
+            else if (/has already been downloaded/.test(line)) {
+                alreadyHad = true;
+                var had = line.match(/^\[download\]\s+(.+?)\s+has already been downloaded/);
+                if (had) existing.push(had[1]);
+                phase("Já estava baixado", 1);
+            }
             else if (/^\[Merger\]/.test(line)) phase("Juntando áudio e vídeo…", null);
             else if (/^\[VideoRemuxer\]/.test(line)) phase("Fazendo remux…", null);
             else if (/^\[ExtractAudio\]/.test(line)) phase("Convertendo áudio…", null);
@@ -406,16 +425,8 @@ var HDLDownloader = (function () {
         var promise = new Promise(function (resolve, reject) {
             child.on("error", function (e) { reject(e); });
             child.on("close", function (code) {
-                var files = [];
-                try {
-                    if (fs.existsSync(printFile)) {
-                        files = fs.readFileSync(printFile, "utf8").split(/\r?\n/).map(function (l) { return l.trim(); })
-                            .filter(function (l) { return l && fs.existsSync(l); });
-                        fs.unlinkSync(printFile);
-                    }
-                } catch (e) { /* ignora */ }
-                // remove duplicatas mantendo a ordem
-                files = files.filter(function (f, i) { return files.indexOf(f) === i; });
+                var files = readFinished();
+                try { if (fs.existsSync(printFile)) fs.unlinkSync(printFile); } catch (e) { HDLLog.debug("não apaguei", printFile); }
                 // só aceita arquivos dentro da pasta de destino (o painel importa e
                 // pode apagar esses arquivos depois)
                 files = files.filter(function (f) {
@@ -423,6 +434,7 @@ var HDLDownloader = (function () {
                     cb.onLog("Ignorado (fora da pasta " + outDir + "): " + f);
                     return false;
                 });
+                Array.prototype.push.apply(finished, files);
 
                 if (canceled) { reject(canceledError()); return; }
                 if (code !== 0 && !files.length) {
@@ -440,6 +452,11 @@ var HDLDownloader = (function () {
         return {
             promise: promise,
             created: created,
+            finished: finished,
+            existing: existing,
+            printFile: printFile,
+            // prontos até agora (para a limpeza quando o painel fecha antes do fim)
+            readFinished: function () { return readFinished().filter(function (f) { return isInside(outDir, f); }); },
             cancel: function () { canceled = true; T.killTree(child); }
         };
     }

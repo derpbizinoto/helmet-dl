@@ -54,9 +54,9 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 
 ### Sem internet
 
-- [ ] Desligue o Wi-Fi/cabo. Cole um link e clique em Download.
-- [ ] O item termina em erro com "Sem conexão com a internet (ou o site não respondeu)…".
-- [ ] Ainda sem internet, em **Ferramentas** clique em **Atualizar** do yt-dlp → mensagem "Não deu para instalar o yt-dlp. Sem conexão…", e o yt-dlp anterior continua funcionando (religue a internet e baixe algo).
+- [x] Desligue o Wi-Fi/cabo. Cole um link e clique em Download.
+- [x] O item termina em erro com "Sem conexão com a internet (ou o site não respondeu)…".
+- [ ] Ainda sem internet, em **Ferramentas** clique em **Atualizar** do yt-dlp → na própria linha do yt-dlp aparece "Sem conexão com a internet — a versão … continua" (e no topo do painel, "Não deu para instalar o yt-dlp. Sem conexão…"). Religue a internet e baixe algo: o yt-dlp anterior continua funcionando. *(1º teste: "não apareceu nada" — a mensagem só ia para o topo do painel, longe do botão. Corrigido: testar de novo.)*
 
 ## Funções principais (para garantir que nada quebrou)
 
@@ -67,10 +67,11 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 - [x] **Velocidade da GPU:** reencode um vídeo de alguns minutos em H.264 com GPU, anote o tempo e a resolução, e copie do Log a linha que começa com `> ffmpeg` e qualquer linha "O encode na GPU falhou". *(No 2º teste a GPU pareceu mais lenta; medido fora do Premiere, o código da 1.0.0 e o da 1.0.1 levam o mesmo tempo — 8,3 s no mesmo arquivo com a NVIDIA.)* ***- Teste: não fiz porque aparentemente a velocidade voltou ao normal.****
 - [x] **Ambos** → dois arquivos no Project (remux e `[H.264]`).
 - [x] **Baixar só um trecho** (ex.: 10 a 20) → arquivo com ~10 s, nome terminando em `10-20s`.
-- [ ] **Playlist** ligada com um link de playlist pequena → todos os vídeos na fila do yt-dlp, numerados.
+- [x] **Playlist** ligada com um link de playlist pequena → todos os vídeos na fila do yt-dlp, numerados.
+- [ ] **Playlist cancelada:** com a mesma playlist (apague antes os vídeos dela da pasta `Helmet DL`), cancele depois que o 1º vídeo terminar → em ~2 segundos a pasta fica sem os vídeos dessa playlist e sem `.part`. Um vídeo que **já estava** na pasta antes de começar continua lá. *(1º teste: um vídeo já concluído sobrava na pasta. Corrigido: testar de novo.)*
 - [x] **Importar numa bin "Helmet DL"** desligado → importa na raiz do Project.
 - [x] Vários links colados de uma vez (separados por espaço) → todos entram na fila, um de cada vez.
-- [ ] **Cookies do navegador** = Firefox (com o Firefox logado no Instagram) → um Reel baixa. No Log aparece só `--cookies-from-browser firefox`, nunca o conteúdo dos cookies.
+- [x] **Cookies do navegador** = Firefox (com o Firefox logado no Instagram) → um Reel baixa. No Log aparece só `--cookies-from-browser firefox`, nunca o conteúdo dos cookies.
 - [x] **Nenhum projeto aberto** (Arquivo › Fechar Projeto, com o painel aberto) → o topo do painel muda para algo como "Salve o projeto para poder baixar" ou "Nenhum projeto aberto", e o Download termina em erro pedindo para salvar/abrir um projeto. *(Passo corrigido: nas versões atuais o Premiere já pede a pasta ao criar o projeto, então "projeto não salvo" não acontece.)*
 - [x] Feche e reabra o painel → as opções escolhidas continuam marcadas.
 - [x] Role a lista até esconder o item em andamento → aparece a barra de progresso no rodapé; clicar no título rola até o item.

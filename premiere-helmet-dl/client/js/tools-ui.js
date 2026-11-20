@@ -9,6 +9,9 @@ var HDLToolsUI = (function () {
     var els = U.els;
 
     var busy = null; // promise de uma instalação em andamento (uma por vez)
+    // Resultado de uma instalação que falhou, mostrado na linha da própria ferramenta
+    // (a linha de status fica no topo do painel, longe do botão).
+    var notes = {};
 
     var SOURCE_LABEL = { managed: "instalado pela extensão", path: "do sistema", python: "via Python" };
 
@@ -34,6 +37,9 @@ var HDLToolsUI = (function () {
             row.className = "tool-row " + (r.t ? "ok" : (r.required ? "missing" : "optional"));
             if (progressFor === k) {
                 r.el.textContent = progressText;
+            } else if (notes[k]) {
+                r.el.textContent = notes[k];
+                if (!r.t) missing.push(label(k));
             } else if (r.t) {
                 r.el.textContent = r.t.version + " · " + (SOURCE_LABEL[r.t.source] || r.t.source);
             } else {
@@ -62,6 +68,7 @@ var HDLToolsUI = (function () {
         var fn = name === "ytdlp" ? (HDLTools.state.ytdlp ? HDLTools.updateYtdlp : HDLTools.installYtdlp)
             : name === "ffmpeg" ? HDLTools.installFfmpeg : HDLTools.installDeno;
         var run = function () {
+            delete notes[name];
             U.appendLog("Instalando " + label(name) + "…");
             render(name, "Baixando…");
             return fn(function (got, total) {
@@ -75,9 +82,11 @@ var HDLToolsUI = (function () {
             }, function (e) {
                 // o detalhe técnico fica no log; na tela, uma frase clara
                 U.appendLog("Falha ao instalar " + label(name) + ": " + e.message);
-                if (HDLTools.isNetworkError(e.message)) {
-                    throw new Error("Não deu para instalar o " + label(name) + ". " + HDLTools.NETWORK_MESSAGE);
-                }
+                var network = HDLTools.isNetworkError(e.message);
+                var had = HDLTools.state[name];
+                notes[name] = (network ? "Sem conexão com a internet — " : "Falhou (veja o Log) — ") +
+                    (had ? "a versão " + had.version + " continua" : "não instalado");
+                if (network) throw new Error("Não deu para instalar o " + label(name) + ". " + HDLTools.NETWORK_MESSAGE);
                 throw e;
             });
         };

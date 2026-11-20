@@ -142,6 +142,21 @@ test("limpeza: Reencode cancelado apaga o original (.mkv) e os .part", () => {
     eq(fs.readdirSync(dir).sort(), ["Outro vídeo [xyz].mp4", "antiga.part"]);
     ok(fs.existsSync(outros) && fs.existsSync(fora), "apagou o que não devia");
 });
+test("limpeza: playlist cancelada apaga os vídeos já prontos, menos os que já existiam", () => {
+    const { dir, touch } = leftoversDir("Playlist Ação");
+    const since = Date.now() - 1000;
+    const novo1 = touch("01 - Primeiro [a].mp4");
+    const novo2 = touch("02 - Segundo [b].mp4");
+    const antigo = touch("03 - Antigo [c].mp4");              // gravado antes deste download
+    fs.utimesSync(antigo, new Date(since - 86400000), new Date(since - 86400000));
+    const jaTinha = touch("04 - Já tinha [d].mp4");           // "has already been downloaded"
+    touch("05 - Quinto [e].f137.mp4.part");
+    Q._removeLeftovers(dir, since, {
+        created: [], downloaded: [], intermediates: [],
+        finished: [novo1, novo2, antigo, jaTinha], existing: [jaTinha]
+    }, false);
+    eq(fs.readdirSync(dir).sort(), ["03 - Antigo [c].mp4", "04 - Já tinha [d].mp4"]);
+});
 test("limpeza: arquivo que já existia antes (ou fora do Reencode) fica", () => {
     const { dir, touch } = leftoversDir("Limpeza 2");
     const mkv = touch("Vídeo [abc].mkv");
@@ -280,6 +295,36 @@ test("download: '--' antes da URL e opções de segurança", () => {
         T.state.ytdlp = realY;
     }
 });
+test("download: anota o que ficou pronto e o que já existia", async () => {
+    const out = path.join(TMP, "prontos", "Helmet DL");
+    fs.mkdirSync(out, { recursive: true });
+    const a = path.join(out, "01 - A [a].mp4"), b = path.join(out, "02 - B [b].mp4");
+    fs.writeFileSync(a, "x"); fs.writeFileSync(b, "x");
+    const realSpawn = T.spawnTool, realY = T.state.ytdlp;
+    T.state.ytdlp = { cmd: "yt-dlp.exe", base: [], version: "2025.12.01" };
+    T.spawnTool = function (cmd, args) {
+        const printFile = args[args.indexOf("--print-to-file") + 2];
+        const child = new EventEmitter();
+        child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.kill = () => {};
+        setTimeout(() => {
+            child.stdout.write("[download] " + b + " has already been downloaded\n");
+            fs.writeFileSync(printFile, a + "\n" + b + "\n" + path.join(TMP, "fora.mp4") + "\n");
+            child.stdout.end(); child.stderr.end();
+            setTimeout(() => child.emit("close", 1), 20);
+        }, 5);
+        return child;
+    };
+    try {
+        const h = D.download("https://exemplo.com/playlist", { content: "both", quality: "best", mode: "original", playlist: true, cookies: "" },
+            out, { onProgress() {}, onLog() {} });
+        await h.promise.catch(() => {});
+        eq(h.finished, [a, b], "prontos (só dentro da pasta)");
+        eq(h.existing, [b], "já existia");
+    } finally {
+        T.spawnTool = realSpawn;
+        T.state.ytdlp = realY;
+    }
+});
 test("formatArgs: áudio em MP3", () => {
     eq(D._formatArgs({ content: "audio", audioFormat: "mp3" }), ["-f", "ba/b", "-x", "--audio-format", "mp3", "--audio-quality", "320K"]);
 });
@@ -304,6 +349,28 @@ test("friendlyError: sem internet, site não suportado, login", () => {
     ok(/Cookies do navegador/.test(D.friendlyError("Sign in to confirm you're not a bot")), "login");
     eq(D.friendlyError("Unable to download webpage: HTTP Error 404: Not Found"),
         "Unable to download webpage: HTTP Error 404: Not Found", "404 não vira dica de cookies");
+});
+
+test("Ferramentas: atualizar sem internet mostra o aviso na linha do yt-dlp", async () => {
+    const node = () => ({ textContent: "", style: {}, disabled: false, className: "", closest: () => ({ className: "" }) });
+    const els = { ytdlpInfo: node(), ffmpegInfo: node(), denoInfo: node(), btnYtdlp: node(), btnFfmpeg: node(),
+        btnDeno: node(), toolsSummary: node(), logDetails: { open: false } };
+    let status = null;
+    const fakeTools = {
+        isWin: true, isNetworkError: T.isNetworkError, NETWORK_MESSAGE: T.NETWORK_MESSAGE,
+        state: { ytdlp: { version: "2025.10.22", source: "managed" }, ffmpeg: { version: "7.1", source: "managed" }, deno: null },
+        updateYtdlp: () => Promise.reject(new Error("getaddrinfo ENOTFOUND github.com / Não foi possível baixar (O nome remoto n�o p�de ser resolvido)"))
+    };
+    const tctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLLog: ctx.HDLLog, HDLTools: fakeTools, HDLQueue: { isRunning: () => false },
+        HDLUi: { els, hasNode: true, appendLog() {}, updateEncoderHint() {}, fmtBytes: () => "", setStatus: (m, k) => { status = [m, k]; } },
+        Promise, setTimeout, localStorage: fakeStorage };
+    vm.createContext(tctx);
+    vm.runInContext(fs.readFileSync(path.join(JS, "tools-ui.js"), "utf8"), tctx, { filename: "tools-ui.js" });
+    tctx.HDLToolsUI.onButton("ytdlp");
+    await new Promise((r) => setTimeout(r, 50));
+    eq(els.ytdlpInfo.textContent, "Sem conexão com a internet — a versão 2025.10.22 continua");
+    ok(/Sem conexão/.test(status[0]) && status[1] === "error", JSON.stringify(status));
+    ok(!els.btnYtdlp.disabled, "botão liberado de novo");
 });
 
 // ---------------------------------------------------------------------------------

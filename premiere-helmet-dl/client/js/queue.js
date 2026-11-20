@@ -112,6 +112,9 @@ var HDLQueue = (function () {
         job.created = [];      // arquivos que o yt-dlp começou a baixar
         job.downloaded = [];   // arquivos finais entregues pelo yt-dlp (não são apagados na limpeza…)
         job.intermediates = []; // …exceto estes: originais do modo Reencode, que só existem para virar o [H.264]
+        job.dl = null;         // o download do yt-dlp (o job.handle muda para o FFmpeg depois)
+        job.finished = [];     // prontos antes de cancelar/falhar (ex.: vídeos de uma playlist)
+        job.existing = [];     // já estavam na pasta antes deste download (nunca apagados)
 
         function progress(text, percent, nums) {
             setJob(job, { text: text, percent: percent === undefined ? null : percent, nums: nums || "" });
@@ -137,6 +140,7 @@ var HDLQueue = (function () {
                 onLog: U.appendLog
             });
             job.created = job.handle.created;
+            job.dl = job.handle;
             savePending(job);
             return job.handle.promise;
         }).then(function (res) {
@@ -173,7 +177,10 @@ var HDLQueue = (function () {
             clearPending(job);
         }).catch(function (e) {
             job.handle = null;
-            // cancelado ou com erro: apaga as sobras (o arquivo final já baixado fica)
+            // cancelado ou com erro: apaga as sobras, inclusive vídeos de playlist que já
+            // tinham terminado (o que já estava na pasta antes, e o que o yt-dlp entregou
+            // quando o download inteiro deu certo, ficam)
+            collectFinished(job);
             cleanupPartials(outDir, startedAt, job);
             if (e.canceled || job.cancelRequested) {
                 setJob(job, { state: "canceled", text: "Cancelado", percent: null, nums: "" });
@@ -286,12 +293,21 @@ var HDLQueue = (function () {
     // entregues pelo yt-dlp (job.downloaded) nem nada fora da pasta de destino.
     function removeLeftovers(outDir, since, job, wait) {
         if (!outDir) return;
-        var intermediates = (job.intermediates || []).map(function (f) { return nodePath.resolve(f).toLowerCase(); });
-        var keep = (job.downloaded || []).map(function (f) { return nodePath.resolve(f).toLowerCase(); })
-            .filter(function (f) { return intermediates.indexOf(f) < 0; });
+        function norm(list) { return (list || []).map(function (f) { return nodePath.resolve(f).toLowerCase(); }); }
+        var intermediates = norm(job.intermediates);
+        var keep = norm(job.downloaded).filter(function (f) { return intermediates.indexOf(f) < 0; })
+            .concat(norm(job.existing));
         (job.created || []).concat(job.intermediates || []).forEach(function (f) {
             if (!HDLDownloader.isInside(outDir, f) || keep.indexOf(nodePath.resolve(f).toLowerCase()) >= 0) return;
             [f, f + ".part", f + ".ytdl"].forEach(function (x) { rmFile(x, wait); });
+        });
+        // Prontos: só se foram gravados durante este download (um arquivo antigo da pasta
+        // nunca é apagado, mesmo que o yt-dlp o liste).
+        (job.finished || []).forEach(function (f) {
+            if (!HDLDownloader.isInside(outDir, f) || keep.indexOf(nodePath.resolve(f).toLowerCase()) >= 0) return;
+            try {
+                if (nodeFs.statSync(f).mtimeMs >= since - 2000) rmFile(f, wait);
+            } catch (e) { /* já não existe */ }
         });
         try {
             nodeFs.readdirSync(outDir).forEach(function (name) {
@@ -319,6 +335,15 @@ var HDLQueue = (function () {
     // sobras dele. Se o painel fechar no meio, a limpeza tenta rodar na hora; se o Premiere
     // não der tempo para isso, ela roda na próxima vez que o painel abrir.
 
+    // Arquivos que o yt-dlp já tinha terminado (vídeos concluídos de uma playlist) e os
+    // que já estavam na pasta antes; usados pela limpeza.
+    function collectFinished(job) {
+        if (!job.dl) return;
+        var fin = job.dl.finished.concat(job.dl.readFinished());
+        job.finished = fin.filter(function (f, i) { return fin.indexOf(f) === i; });
+        job.existing = job.dl.existing.slice();
+    }
+
     function savePending(job) {
         if (!U.hasNode || !job.outDir) return;
         try {
@@ -328,7 +353,10 @@ var HDLQueue = (function () {
                 created: (job.created || []).slice(),
                 downloaded: (job.downloaded || []).slice(),
                 intermediates: (job.intermediates || []).slice(),
-                tempOutputs: (job.tempOutputs || []).slice()
+                tempOutputs: (job.tempOutputs || []).slice(),
+                finished: (job.finished || []).slice(),
+                existing: (job.existing || []).slice(),
+                printFile: job.dl ? job.dl.printFile : ""
             }));
         } catch (e) { HDLLog.debug("não consegui anotar o download em andamento", e.message); }
     }
@@ -339,9 +367,12 @@ var HDLQueue = (function () {
         if (!rec || typeof rec.outDir !== "string" || typeof rec.since !== "number") return null;
         // só a pasta "Helmet DL" de algum projeto, e listas só de texto
         if (!nodePath.isAbsolute(rec.outDir) || nodePath.basename(rec.outDir) !== C.FOLDER_NAME) return null;
-        ["created", "downloaded", "intermediates", "tempOutputs"].forEach(function (k) {
+        ["created", "downloaded", "intermediates", "tempOutputs", "finished", "existing"].forEach(function (k) {
             rec[k] = Array.isArray(rec[k]) ? rec[k].filter(function (f) { return typeof f === "string"; }) : [];
         });
+        // lista do yt-dlp com o que ficou pronto: só o arquivo temporário do próprio painel
+        if (typeof rec.printFile !== "string" || nodePath.dirname(rec.printFile) !== nodePath.resolve(require("os").tmpdir()) ||
+            !/^helmet-dl-[\w.-]+\.txt$/.test(nodePath.basename(rec.printFile))) rec.printFile = "";
         return rec;
     }
 
@@ -364,7 +395,7 @@ var HDLQueue = (function () {
         if (closing || !U.hasNode) return;
         closing = true;
         var active = jobs.filter(function (job) { return job.state === "running"; });
-        active.forEach(savePending);
+        active.forEach(function (job) { collectFinished(job); savePending(job); });
         killAll();
         active.forEach(function (job) {
             job.cancelRequested = true;
@@ -382,6 +413,15 @@ var HDLQueue = (function () {
         setTimeout(function () {
             if (jobs.some(function (j) { return j.state === "running"; })) return; // nunca no meio de outro download
             rec.tempOutputs.forEach(function (f) { if (HDLDownloader.isInside(rec.outDir, f)) rmFile(f, false); });
+            if (rec.printFile) {
+                try {
+                    nodeFs.readFileSync(rec.printFile, "utf8").split(/\r?\n/).forEach(function (l) {
+                        l = l.trim();
+                        if (l && rec.finished.indexOf(l) < 0) rec.finished.push(l);
+                    });
+                } catch (e) { /* o painel não chegou a gravar a lista */ }
+                rmFile(rec.printFile, false);
+            }
             removeLeftovers(rec.outDir, rec.since, rec, false);
             clearPending();
             U.appendLog("Apaguei as sobras do download interrompido quando o painel foi fechado (" + rec.outDir + ").");

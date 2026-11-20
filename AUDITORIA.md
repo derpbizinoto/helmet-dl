@@ -308,7 +308,19 @@ Depois do segundo teste manual:
 - **`.mkv` que sobrou de novo:** provavelmente era o que ficou do 1º teste (arquivo que já existia
   antes do download é mantido de propósito). O roteiro agora pede para apagá-lo antes de testar.
 
-Testes: `node tests\run-tests.js` (30 testes, todos passando). Também foram feitos testes
+Depois do terceiro teste manual (sem internet, playlist, cookies):
+
+- **Atualizar sem internet "não mostrava nada":** a mensagem ia para a linha de status no topo do
+  painel, longe do card Ferramentas (igual à 1.0.0). Agora o motivo aparece também na linha da
+  ferramenta. A mensagem do PowerShell em português chega com acentos estragados; o reconhecimento
+  de "sem conexão" passou a aceitar isso.
+- **Playlist cancelada deixava um vídeo pronto na pasta** (igual à 1.0.0): o yt-dlp já tinha
+  terminado esse vídeo, que não ia para o Project. Agora, ao cancelar ou dar erro, os vídeos
+  terminados por este download também são apagados — nunca os que já estavam na pasta antes
+  (conferido pela mensagem do yt-dlp e pela data do arquivo).
+- Cookies do Firefox: ok; no Log aparece só o nome do navegador.
+
+Testes: `node tests\run-tests.js` (33 testes, todos passando). Também foram feitos testes
 reais fora do Premiere: download e reencode de vídeo do YouTube numa pasta com acentos e emoji,
 cancelamento no meio, instalação das três ferramentas com SHA-256 (e recusa de arquivo
 adulterado), PowerShell com aspas no caminho, encerramento de processos. **Não foi testado
