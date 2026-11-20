@@ -1,20 +1,24 @@
 // client/js/i18n.js — Helmet DL
-// Idioma do painel: inglês (padrão) ou português, escolhido em Opções › Idioma e
-// lembrado entre sessões.
+// Idioma do painel: inglês (padrão) ou português, escolhido em Opções › Language / Idioma
+// e lembrado entre sessões. Vem logo depois do config.js (todos os outros usam).
 //
 // Como funciona: o texto continua escrito em português no código e no index.html;
-// o português é a "chave". Em inglês, HDLI18n.t() troca a frase pela tradução do
+// o português é a "chave". Em inglês, tr() troca a frase pela tradução do
 // dicionário EN abaixo. Frase nova na tela = entrada nova no EN (os testes
-// automáticos falham se faltar alguma).
+// automáticos falham se faltar alguma). Cada script pega o atalho: var tr = HDLI18n.t;
 //
 //   tr("Baixando {0}", "50%")   -> "Downloading 50%"  ({0}, {1}… são trocados pelos argumentos)
-//   N("frase")                  -> só marca uma frase guardada numa constante, para os testes
-//                                  acharem; a tradução acontece quando ela é mostrada, com tr()
-//   apply(document.body)        -> traduz o texto fixo do index.html (textos, title, placeholder)
-
+//   N("frase")                  -> a frase em português, sempre. Marca frases guardadas em
+//                                  constantes para os testes acharem; a tradução acontece
+//                                  quando ela é mostrada, com tr()
+//   HDLI18n.tMessage(texto)     -> traduz uma mensagem pronta em português do host/index.jsx
+//                                  (ex.: "Erro ao importar no Premiere: <detalhe>")
+//   HDLI18n.apply()             -> traduz o texto fixo do index.html (textos, title, placeholder)
 var HDLI18n = (function () {
+    "use strict";
+
     var LANGS = ["en", "pt"];
-    var KEY = (typeof HDL_CONFIG !== "undefined" && HDL_CONFIG.LANG_KEY) || "helmetdl.lang";
+    var KEY = "helmetdl.lang";
 
     var EN = {
         // --- index.html -------------------------------------------------------------
@@ -53,7 +57,6 @@ var HDLI18n = (function () {
         "Cookies do navegador": "Browser cookies",
         "Necessário para Instagram, vídeos privados ou com restrição de idade": "Needed for Instagram, private or age-restricted videos",
         "Nenhum": "None",
-        "Idioma": "Language",
         "Limpar concluídos da lista": "Clear finished items from the list",
         "Ferramentas": "Tools",
         "verificando…": "checking…",
@@ -130,11 +133,11 @@ var HDLI18n = (function () {
         "Cancelado: {0}": "Canceled: {0}",
         "Cancelando…": "Canceling…",
         "ERRO: {0}": "ERROR: {0}",
-        "Reencodando para {0}": "Re-encoding to {0}",
+        "Reencodando para {0}…": "Re-encoding to {0}…",
         "GPU indisponível para {0}; usando a CPU.": "GPU unavailable for {0}; using the CPU.",
         "O encode na GPU falhou ({0}). Refazendo na CPU…": "The GPU encode failed ({0}). Redoing it on the CPU…",
         "Não apaguei o original: {0}": "Didn't delete the original: {0}",
-        "Removendo o áudio": "Removing the audio",
+        "Removendo o áudio{0}…": "Removing the audio{0}…",
         "Apaguei as sobras do download interrompido quando o painel foi fechado ({0}).": "Deleted the leftovers of the download interrupted when the panel was closed ({0}).",
         "Cancelar": "Cancel",
         "Mostrar na pasta": "Show in folder",
@@ -194,8 +197,8 @@ var HDLI18n = (function () {
         "{0} foi baixado, mas não respondeu. Veja o log.": "{0} was downloaded but didn't respond. See the log.",
         "{0} pronto: {1}": "{0} ready: {1}",
         "Falha ao instalar {0}: {1}": "Failed to install {0}: {1}",
-        "Sem conexão com a internet — ": "No internet connection — ",
-        "Falhou (veja o Log) — ": "Failed (see the Log) — ",
+        "Sem conexão com a internet — {0}": "No internet connection — {0}",
+        "Falhou (veja o Log) — {0}": "Failed (see the Log) — {0}",
         "a versão {0} continua": "version {0} is still in place",
         "não instalado": "not installed",
         "Não deu para instalar o {0}.": "Couldn't install {0}.",
@@ -265,56 +268,79 @@ var HDLI18n = (function () {
 
     // tr("frase em português", arg0, arg1…)
     function t(key) {
+        key = String(key);
         var text = lang === "en" && hasOwn(EN, key) ? EN[key] : key;
         return format(text, Array.prototype.slice.call(arguments, 1));
     }
 
     function N(key) { return key; }
 
-    // Mensagem que já chega pronta em português (do host/index.jsx): traduz a frase
-    // inteira ou, para "Erro ao …: <detalhe>", só a parte fixa.
-    function tMessage(msg) {
-        msg = String(msg || "");
-        if (lang !== "en") return msg;
-        if (hasOwn(EN, msg)) return EN[msg];
-        for (var k in EN) {
-            if (!hasOwn(EN, k) || k.slice(-5) !== ": {0}") continue;
-            var prefix = k.slice(0, -3);
-            if (msg.indexOf(prefix) === 0) return t(k, msg.slice(prefix.length));
-        }
-        return msg;
+    // Mensagem pronta em português (host/index.jsx). Acha a frase igual no dicionário ou
+    // um modelo com {0} que case com ela inteira (ex.: "Erro ao importar no Premiere: {0}");
+    // o que entrou no lugar do {0} é traduzido também. O resto passa sem mudança.
+    var patterns = null;
+    function buildPatterns() {
+        patterns = [];
+        Object.keys(EN).forEach(function (key) {
+            if (!/\{\d\}/.test(key) || key.charAt(0) === "{") return;   // "{0} de {1}" casaria com quase tudo
+            var order = [];
+            var src = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\{(\d)\\\}/g, function (m, i) {
+                order.push(+i);
+                return "([\\s\\S]*?)";
+            });
+            patterns.push({ key: key, re: new RegExp("^" + src + "$"), order: order });
+        });
+        patterns.sort(function (a, b) { return b.key.length - a.key.length; });   // o mais específico primeiro
     }
 
-    // Traduz o texto fixo do index.html. Guarda o original em português em cada nó
-    // para poder voltar. Só mexe no que está no dicionário (o resto é do código).
-    var ATTRS = ["title", "placeholder", "aria-label"];
+    function tMessage(text) {
+        if (text === undefined || text === null) return "";
+        text = String(text);
+        if (lang !== "en") return text;
+        if (hasOwn(EN, text)) return EN[text];
+        if (!patterns) buildPatterns();
+        for (var i = 0; i < patterns.length; i++) {
+            var m = patterns[i].re.exec(text);
+            if (!m) continue;
+            var args = [];
+            patterns[i].order.forEach(function (n, j) { args[n] = tMessage(m[j + 1]); });
+            return format(EN[patterns[i].key], args);
+        }
+        return text;
+    }
 
-    function apply(root) {
-        if (typeof document === "undefined") return;
-        root = root || document.body;
-        document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+    // ---------- texto fixo do index.html ----------
+    // Na primeira vez (logo ao carregar, antes dos outros scripts montarem a tela) anota
+    // os textos e atributos do index.html que estão no dicionário, com o original em
+    // português. Nas trocas seguintes só eles mudam — nunca um título de vídeo ou uma
+    // linha do Log que o painel colocou depois.
+    var ATTRS = ["title", "placeholder", "aria-label"];
+    var fixed = null;
+
+    function collect(root) {
+        fixed = [];
         var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
         var node;
         while ((node = walker.nextNode())) {
-            if (node._hdlPt === undefined) {
-                if (!hasOwn(EN, node.nodeValue.trim())) continue;
-                node._hdlPt = node.nodeValue;
-            }
-            var key = node._hdlPt.trim();
-            var text = t(key);
-            node.nodeValue = node._hdlPt.replace(key, function () { return text; });
+            var key = node.nodeValue.trim();
+            if (key && hasOwn(EN, key)) fixed.push({ node: node, pt: node.nodeValue, key: key });
         }
         ATTRS.forEach(function (attr) {
-            var store = "data-pt-" + attr;
             Array.prototype.forEach.call(root.querySelectorAll("[" + attr + "]"), function (el) {
-                var orig = el.getAttribute(store);
-                if (orig === null) {
-                    orig = el.getAttribute(attr);
-                    if (!hasOwn(EN, orig)) return;
-                    el.setAttribute(store, orig);
-                }
-                el.setAttribute(attr, t(orig));
+                var key = el.getAttribute(attr);
+                if (hasOwn(EN, key)) fixed.push({ el: el, attr: attr, key: key });
             });
+        });
+    }
+
+    function apply() {
+        if (typeof document === "undefined" || !document.body || typeof document.createTreeWalker !== "function") return;
+        if (!fixed) collect(document.body);
+        document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+        fixed.forEach(function (f) {
+            var text = t(f.key);
+            if (f.node) f.node.nodeValue = f.pt.replace(f.key, function () { return text; });
+            else f.el.setAttribute(f.attr, text);
         });
     }
 
@@ -337,3 +363,6 @@ var HDLI18n = (function () {
         EN: EN
     };
 })();
+
+// Os scripts ficam no fim do <body>: a tela já existe aqui, então já sai traduzida.
+HDLI18n.apply();

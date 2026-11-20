@@ -205,7 +205,7 @@ var HDLQueue = (function () {
             ? HDLDownloader.detectGpu().then(function (g) { return HDLDownloader.gpuVideoArgs(g, o.codec) ? g : null; })
             : Promise.resolve(null);
         var encodeWith = function (gpu) {
-            setJob(job, { text: tr("Reencodando para {0}", codecLabel + (gpu ? " (GPU)" : " (CPU)") + tag) + "…", percent: 0, nums: "" });
+            setJob(job, { text: tr("Reencodando para {0}…", codecLabel + (gpu ? " (GPU)" : " (CPU)") + tag), percent: 0, nums: "" });
             job.handle = HDLDownloader.reencode(file, out, o.codec, o.content === "video", info, function (f) {
                 setJob(job, { percent: f, nums: Math.floor(f * 100) + "%" });
             }, U.appendLog, gpu);
@@ -258,7 +258,7 @@ var HDLQueue = (function () {
 
                     var after = Promise.resolve(info);
                     if (o.content === "video" && info && info.acodec) {
-                        setJob(job, { text: tr("Removendo o áudio") + tag + "…", percent: null, nums: "" });
+                        setJob(job, { text: tr("Removendo o áudio{0}…", tag), percent: null, nums: "" });
                         job.handle = HDLDownloader.stripAudio(file, U.appendLog);
                         after = job.handle.promise.then(function () { info.acodec = null; return info; });
                     }

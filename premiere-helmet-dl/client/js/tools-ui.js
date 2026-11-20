@@ -85,8 +85,8 @@ var HDLToolsUI = (function () {
                 U.appendLog(tr("Falha ao instalar {0}: {1}", label(name), e.message));
                 var network = HDLTools.isNetworkError(e.message);
                 var had = HDLTools.state[name];
-                notes[name] = (network ? tr("Sem conexão com a internet — ") : tr("Falhou (veja o Log) — ")) +
-                    (had ? tr("a versão {0} continua", had.version) : tr("não instalado"));
+                var now = had ? tr("a versão {0} continua", had.version) : tr("não instalado");
+                notes[name] = network ? tr("Sem conexão com a internet — {0}", now) : tr("Falhou (veja o Log) — {0}", now);
                 if (network) throw new Error(tr("Não deu para instalar o {0}.", label(name)) + " " + tr(HDLTools.NETWORK_MESSAGE));
                 throw e;
             });

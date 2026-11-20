@@ -42,7 +42,6 @@ var HDL_CONFIG = (function () {
 
         // --- Configurações lembradas (localStorage) ------------------------------
         SETTINGS_KEY: "helmetdl.settings.v1",
-        LANG_KEY: "helmetdl.lang",          // "en" (padrão) ou "pt"
         UPDATE_KEY: "helmetdl.lastUpdateCheck",
         PENDING_CLEANUP_KEY: "helmetdl.pendingCleanup", // download em andamento (para limpar se o painel fechar)
         AUTO_UPDATE_INTERVAL_MS: 20 * 60 * 60 * 1000, // confere o yt-dlp no máximo a cada 20 h

@@ -467,7 +467,7 @@ function htmlTexts() {
 }
 
 // Iguais nos dois idiomas (nomes, formatos, números).
-const SAME_IN_BOTH = /^(Helmet DL|Download|Downloads|Log|yt-dlp|FFmpeg|Deno|Original|Remux|CPU|GPU|MP4|MOV|MKV|WAV|English|Português \(Brasil\)|Firefox|Chrome|Edge|Brave|Opera|Vivaldi|[\w.\/ ()+-]*\d[\w.\/ ()+-]*|[\d:]+|—)$/;
+const SAME_IN_BOTH = /^(Helmet DL|Download|Downloads|Log|yt-dlp|FFmpeg|Deno|Original|Remux|CPU|GPU|MP4|MOV|MKV|WAV|English|Português \(Brasil\)|Language \/ Idioma|Firefox|Chrome|Edge|Brave|Opera|Vivaldi|[\w.\/ ()+-]*\d[\w.\/ ()+-]*|[\d:]+|—)$/;
 
 test("idioma: toda frase do código tem tradução em inglês", () => {
     const missing = [...codeKeys()].filter((k) => !Object.prototype.hasOwnProperty.call(I.EN, k));

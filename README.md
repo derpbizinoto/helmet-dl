@@ -52,7 +52,7 @@ Tudo fica em `%APPDATA%\Helmet DL\bin`. Se já existir um FFmpeg/Deno/yt-dlp no 
 - **Baixar a playlist inteira.**
 - **Baixar só um trecho:** início/fim em segundos ou `hh:mm:ss`. O corte cai no keyframe mais próximo.
 - **Cookies do navegador:** para Instagram, vídeos privados ou com restrição de idade. O Firefox é o mais confiável; o Chrome/Edge precisam estar fechados.
-- **Idioma / Language:** inglês (padrão) ou português. Troca na hora e fica salvo. Itens da lista que já terminaram e o Log continuam no idioma em que foram escritos.
+- **Language / Idioma:** inglês (padrão) ou português. Troca na hora e fica salvo. Itens da lista que já terminaram e o Log continuam no idioma em que foram escritos.
 
 Se o arquivo final tiver um codec que o Premiere costuma não abrir (VP9, AV1, Opus…), o item fica amarelo na lista com um aviso.
 

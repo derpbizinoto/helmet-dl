@@ -73,7 +73,6 @@
     }
 
     function init() {
-        HDLI18n.apply(document.body);
         els.langSelect.value = HDLI18n.lang();
         els.versionNote.textContent = "v" + C.CLIENT_VERSION;
         U.loadSettings();
