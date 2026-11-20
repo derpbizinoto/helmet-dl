@@ -102,6 +102,50 @@ test("reencodeOutput: nome limpo e único ao lado do original", () => {
 });
 
 // ---------------------------------------------------------------------------------
+// Limpeza das sobras (queue.js, carregado com uma tela falsa)
+
+const qctx = { HDL_CONFIG: ctx.HDL_CONFIG, HDLUi: { els: {}, hasNode: true }, HDLLog: ctx.HDLLog,
+    HDLDownloader: D, require, setTimeout, clearTimeout, Date };
+vm.createContext(qctx);
+vm.runInContext(fs.readFileSync(path.join(JS, "queue.js"), "utf8"), qctx, { filename: "queue.js" });
+const Q = qctx.HDLQueue;
+
+function leftoversDir(name) {
+    const dir = path.join(TMP, name, "Helmet DL");
+    fs.mkdirSync(dir, { recursive: true });
+    const touch = (n) => { fs.writeFileSync(path.join(dir, n), "x"); return path.join(dir, n); };
+    return { dir, touch };
+}
+
+test("limpeza: Reencode cancelado apaga o original (.mkv) e os .part", () => {
+    const { dir, touch } = leftoversDir("Limpeza Ação 🎬");
+    const since = Date.now();
+    const mkv = touch("Vídeo [abc].mkv");
+    touch("Vídeo [abc].f137.mp4.part");
+    touch("Vídeo [abc].f251.webm.part-Frag3");
+    const outros = touch("Outro vídeo [xyz].mp4");           // arquivo de outro download
+    const antiga = touch("antiga.part");                     // sobra de antes deste download
+    fs.utimesSync(antiga, new Date(since - 60000), new Date(since - 60000));
+    const fora = path.join(TMP, "Limpeza Ação 🎬", "fora.mkv"); // fora da pasta Helmet DL
+    fs.writeFileSync(fora, "x");
+    Q._removeLeftovers(dir, since, {
+        created: [path.join(dir, "Vídeo [abc].f137.mp4")],
+        downloaded: [mkv], intermediates: [mkv, fora]
+    }, true);
+    eq(fs.readdirSync(dir).sort(), ["Outro vídeo [xyz].mp4", "antiga.part"]);
+    ok(fs.existsSync(outros) && fs.existsSync(fora), "apagou o que não devia");
+});
+test("limpeza: arquivo que já existia antes (ou fora do Reencode) fica", () => {
+    const { dir, touch } = leftoversDir("Limpeza 2");
+    const mkv = touch("Vídeo [abc].mkv");
+    touch("Vídeo [abc].f137.mp4.part");
+    Q._removeLeftovers(dir, Date.now() - 1000, {
+        created: [path.join(dir, "Vídeo [abc].f137.mp4")], downloaded: [mkv], intermediates: []
+    }, false);
+    eq(fs.readdirSync(dir), ["Vídeo [abc].mkv"]);
+});
+
+// ---------------------------------------------------------------------------------
 // Links
 
 test("normalizeUrl: aceita http/https e completa 'site.com/…'", () => {

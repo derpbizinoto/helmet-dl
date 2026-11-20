@@ -287,7 +287,17 @@ Coisas achadas durante a execução (fora da lista original):
 - **Log da ponte:** a mensagem "o script do host não carregou" não chegava ao Log do painel; voltou (etapa 8).
 - **Dica de cookies indevida:** o teste de "restrição de idade" casava com qualquer erro contendo "webpage" ou "message" (etapa 9).
 
-Testes: `node tests\run-tests.js` (26 testes, todos passando). Também foram feitos testes
+Depois do primeiro teste manual no Premiere:
+
+- **Fechar o painel no meio** encerrava o yt-dlp/FFmpeg, mas deixava o `.part` na pasta. Agora a
+  limpeza também roda ao fechar (de forma imediata, insistindo enquanto o Windows solta o arquivo).
+- **Cancelar durante o Reencode** deixava o original `.mkv` (igual à 1.0.0). Por decisão sua, agora
+  ele é apagado ao cancelar ou dar erro, como já era quando o reencode dá certo — a não ser que o
+  arquivo já existisse antes do download.
+- Dois passos do `TESTES.md` estavam errados (Remux depois de Reencode; "projeto não salvo") e
+  foram reescritos.
+
+Testes: `node tests\run-tests.js` (28 testes, todos passando). Também foram feitos testes
 reais fora do Premiere: download e reencode de vídeo do YouTube numa pasta com acentos e emoji,
 cancelamento no meio, instalação das três ferramentas com SHA-256 (e recusa de arquivo
 adulterado), PowerShell com aspas no caminho, encerramento de processos. **Não foi testado

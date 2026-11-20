@@ -12,7 +12,7 @@ Nenhum recurso novo e nenhuma mudança visual. O painel funciona igual; por baix
 - Ao fechar o painel ou o Premiere, nenhum yt-dlp/FFmpeg fica rodando sozinho.
 - Pastas relativas do PATH (como `.`) são ignoradas na busca das ferramentas.
 - O reencode nunca grava por cima de um arquivo existente (ganha "(2)", "(3)"…), e o painel só mexe em arquivos dentro da pasta `Helmet DL`.
-- Downloads cancelados **ou com erro** têm as sobras apagadas (`.part`, fragmentos, reencode incompleto). O arquivo final já baixado nunca é apagado.
+- Downloads cancelados, **com erro** ou interrompidos porque o painel foi **fechado** têm as sobras apagadas (`.part`, fragmentos, reencode incompleto). No modo Reencode, o original (`.mkv`) também é apagado nesses casos, como já era quando tudo dá certo; os demais arquivos já baixados nunca são apagados.
 - Nomes de arquivo com caracteres de qualquer idioma e emoji chegam certos ao painel (o yt-dlp agora fala UTF-8 com ele).
 - Miniatura da prévia só de endereços http(s); a fila é montada sem `innerHTML`; links validados de verdade (só http/https com nome de site).
 - Uma única porta de conversa com o Premiere, com lista das funções permitidas; `host/index.jsx` salvo em UTF-8 com BOM.
