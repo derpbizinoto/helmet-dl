@@ -242,7 +242,7 @@ D1 a D5 e do plano — antes de alterar qualquer coisa.**
 
 ---
 
-## 7. Situação final (versão 1.0.1)
+## 7. Situação final (versão 1.1.0)
 
 Aprovado em "Aprovo, pode seguir" (lista de funções, decisões D1 a D5 como sugeridas e o plano).
 Feito na branch `limpeza-seguranca`, um commit por etapa.

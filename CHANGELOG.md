@@ -1,6 +1,6 @@
 # Changelog — Helmet DL
 
-## 1.0.1 — limpeza e segurança
+## 1.1.0 — limpeza e segurança
 
 Nenhum recurso novo e nenhuma mudança visual. O painel funciona igual; por baixo ficou mais seguro e organizado. Detalhes de cada item em `AUDITORIA.md`.
 

@@ -7,7 +7,7 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 ## Preparação
 
 - [x] Feche o Premiere, rode `instalar.bat` e abra o Premiere.
-- [x] **Window › Extensions › Helmet DL** abre o painel, e o rodapé mostra a versão certa (ex.: `v1.0.1`).
+- [x] **Window › Extensions › Helmet DL** abre o painel, e o rodapé mostra a versão certa (ex.: `v1.1.0`).
 - [x] Confira que **não** existe `.debug` em `%APPDATA%\Adobe\CEP\extensions\premiere-helmet-dl\`.
 - [x] Crie um projeto novo e salve numa pasta **com espaços e acentos**, por exemplo `Área de Trabalho\Projeto Ação Teste\teste.prproj`.
 - [x] O topo do painel mostra "Salvando em teste › Helmet DL".
@@ -56,7 +56,7 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 
 - [x] Desligue o Wi-Fi/cabo. Cole um link e clique em Download.
 - [x] O item termina em erro com "Sem conexão com a internet (ou o site não respondeu)…".
-- [ ] Ainda sem internet, em **Ferramentas** clique em **Atualizar** do yt-dlp → na própria linha do yt-dlp aparece "Sem conexão com a internet — a versão … continua" (e no topo do painel, "Não deu para instalar o yt-dlp. Sem conexão…"). Religue a internet e baixe algo: o yt-dlp anterior continua funcionando. *(1º teste: "não apareceu nada" — a mensagem só ia para o topo do painel, longe do botão. Corrigido: testar de novo.)*
+- [x] Ainda sem internet, em **Ferramentas** clique em **Atualizar** do yt-dlp → na própria linha do yt-dlp aparece "Sem conexão com a internet — a versão … continua" (e no topo do painel, "Não deu para instalar o yt-dlp. Sem conexão…"). Religue a internet e baixe algo: o yt-dlp anterior continua funcionando. *(1º teste: "não apareceu nada" — a mensagem só ia para o topo do painel, longe do botão. Corrigido: testar de novo.)*
 
 ## Funções principais (para garantir que nada quebrou)
 
@@ -68,7 +68,7 @@ Marque cada item. Se algo der errado, abra o card **Log** do painel e copie as �
 - [x] **Ambos** → dois arquivos no Project (remux e `[H.264]`).
 - [x] **Baixar só um trecho** (ex.: 10 a 20) → arquivo com ~10 s, nome terminando em `10-20s`.
 - [x] **Playlist** ligada com um link de playlist pequena → todos os vídeos na fila do yt-dlp, numerados.
-- [ ] **Playlist cancelada:** com a mesma playlist (apague antes os vídeos dela da pasta `Helmet DL`), cancele depois que o 1º vídeo terminar → em ~2 segundos a pasta fica sem os vídeos dessa playlist e sem `.part`. Um vídeo que **já estava** na pasta antes de começar continua lá. *(1º teste: um vídeo já concluído sobrava na pasta. Corrigido: testar de novo.)*
+- [x] **Playlist cancelada:** com a mesma playlist (apague antes os vídeos dela da pasta `Helmet DL`), cancele depois que o 1º vídeo terminar → em ~2 segundos a pasta fica sem os vídeos dessa playlist e sem `.part`. Um vídeo que **já estava** na pasta antes de começar continua lá. *(1º teste: um vídeo já concluído sobrava na pasta. Corrigido: testar de novo.)*
 - [x] **Importar numa bin "Helmet DL"** desligado → importa na raiz do Project.
 - [x] Vários links colados de uma vez (separados por espaço) → todos entram na fila, um de cada vez.
 - [x] **Cookies do navegador** = Firefox (com o Firefox logado no Instagram) → um Reel baixa. No Log aparece só `--cookies-from-browser firefox`, nunca o conteúdo dos cookies.

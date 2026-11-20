@@ -3,7 +3,7 @@
 // baixados na aba Project (nunca na timeline).
 // As respostas são JSON montado à mão (o ExtendScript do Premiere não tem JSON nativo).
 
-var HDL_HOST_VERSION = "1.0.1";
+var HDL_HOST_VERSION = "1.1.0";
 
 function hdl_esc(s) {
     var str = String(s);
